@@ -19,7 +19,8 @@ import {
   Key,
   Eye,
   EyeOff,
-  Compass
+  Compass,
+  Tag
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -54,6 +55,13 @@ const SMART_FEATURES_LIST: SmartFeature[] = [
     name: "Sales Notifications",
     description: "Receive push alerts and visual toast updates on your dashboard for completed orders.",
     icon: TrendingUp,
+    tier: "starter"
+  },
+  {
+    id: "allowPriceOverrideDuringSale",
+    name: "Manual Price Override During Selling",
+    description: "Allows cashiers and sales staff to edit/override item prices directly in cart during sales checkout. Controlled by Admin & Manager settings. Displays original vs sold amounts in sales history.",
+    icon: Tag,
     tier: "starter"
   },
   // Professional Tier Features
@@ -157,6 +165,7 @@ export function SmartFeatures() {
     return {
       lowStockAlerts: true,
       salesNotifications: true,
+      allowPriceOverrideDuringSale: true,
       autoReorder: false,
       multiBranchSync: false,
       weeklyEmailDigest: false,

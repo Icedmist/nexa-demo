@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useDemo } from "@/hooks/useDemo";
 import { useState, useEffect, useMemo } from "react";
-import { collection, query, limit, getDocs } from "firebase/firestore";
+import { collection, query, limit, getDocs, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import { getStorefrontUrl, getCleanStoreSlug } from "@/lib/utils";
+import { toast } from "sonner";
 import { BusinessOnboarding } from "@/components/onboarding/BusinessOnboarding";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { LegalModal } from "@/components/legal/LegalModal";
@@ -226,7 +228,7 @@ function SimulatorPriceInput({
 
 function LandingPage() {
   const { enterDemoMode } = useDemo();
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const { settings } = useSystemSettings();
   const navigate = useNavigate();
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -559,9 +561,27 @@ function LandingPage() {
 
   useEffect(() => {
     if (user && !authLoading) {
-      navigate({ to: "/app/dashboard" });
+      if (profile?.role === "super_admin" || user.email?.includes("superadmin")) {
+        navigate({ to: "/app/super-admin" });
+      } else if (profile?.storeId) {
+        getDoc(doc(db, "stores", profile.storeId)).then((storeSnap) => {
+          if (storeSnap.exists()) {
+            const storeData = storeSnap.data();
+            const slug = getCleanStoreSlug(storeData.storeSlug, storeData.storeName);
+            const storeUrl = getStorefrontUrl(slug, "/app/dashboard");
+            toast.info(`Redirecting to your store portal (${storeData.storeName || slug})...`);
+            window.location.href = storeUrl;
+          } else {
+            navigate({ to: "/app/dashboard" });
+          }
+        }).catch(() => {
+          navigate({ to: "/app/dashboard" });
+        });
+      } else {
+        navigate({ to: "/app/dashboard" });
+      }
     }
-  }, [user, authLoading, navigate]);
+  }, [user, profile, authLoading, navigate]);
 
   const handleGetStarted = (type?: string) => {
     if (!invitedStore) {

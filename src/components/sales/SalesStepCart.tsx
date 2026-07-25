@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from "react";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -64,6 +64,40 @@ export function SalesStepCart({
 
   // Track raw inputs for price overrides to prevent "choking" during typing
   const [rawPrices, setRawPrices] = useState<Record<string, string>>({});
+
+  // Smart feature check for price override permission
+  const [allowPriceOverride, setAllowPriceOverride] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("nexa_smart_features");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.allowPriceOverrideDuringSale !== undefined) {
+          return !!parsed.allowPriceOverrideDuringSale;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const saved = localStorage.getItem("nexa_smart_features");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.allowPriceOverrideDuringSale !== undefined) {
+            setAllowPriceOverride(!!parsed.allowPriceOverrideDuringSale);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener("nexa_smart_features_updated", handleStorage);
+    return () => window.removeEventListener("nexa_smart_features_updated", handleStorage);
+  }, []);
 
   // Synchronize raw prices with prop updates
   useEffect(() => {
@@ -208,31 +242,38 @@ export function SalesStepCart({
                   
                   {/* Price input & Unit selector row */}
                   <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                    <div className="flex items-center gap-1.5 bg-slate-200 dark:bg-slate-800 p-0.5 rounded-lg border-2 border-slate-500 dark:border-slate-600 shadow-sm">
-                      <span className="text-xs font-black text-slate-900 dark:text-slate-100 px-1">₦</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        pattern="[0-9]*[.,]?[0-9]*"
-                        value={rawPrices[uniqueKey] !== undefined ? rawPrices[uniqueKey] : unitPrice.toString()}
-                        onChange={(e) => {
-                          const rawVal = e.target.value;
-                          // Allow digits, decimal point, or empty
-                          if (/^[0-9]*\.?[0-9]*$/.test(rawVal)) {
-                            setRawPrices(prev => ({ ...prev, [uniqueKey]: rawVal }));
-                            if (rawVal === "") {
-                              onOverridePrice?.(uniqueKey, undefined);
-                            } else {
-                              const val = parseFloat(rawVal);
-                              if (!isNaN(val)) {
-                                onOverridePrice?.(uniqueKey, val);
+                    {allowPriceOverride ? (
+                      <div className="flex items-center gap-1.5 bg-slate-200 dark:bg-slate-800 p-0.5 rounded-lg border-2 border-slate-500 dark:border-slate-600 shadow-sm">
+                        <span className="text-xs font-black text-slate-900 dark:text-slate-100 px-1">₦</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          pattern="[0-9]*[.,]?[0-9]*"
+                          value={rawPrices[uniqueKey] !== undefined ? rawPrices[uniqueKey] : unitPrice.toString()}
+                          onChange={(e) => {
+                            const rawVal = e.target.value;
+                            // Allow digits, decimal point, or empty
+                            if (/^[0-9]*\.?[0-9]*$/.test(rawVal)) {
+                              setRawPrices(prev => ({ ...prev, [uniqueKey]: rawVal }));
+                              if (rawVal === "") {
+                                onOverridePrice?.(uniqueKey, undefined);
+                              } else {
+                                const val = parseFloat(rawVal);
+                                if (!isNaN(val)) {
+                                  onOverridePrice?.(uniqueKey, val);
+                                }
                               }
                             }
-                          }
-                        }}
-                        className="w-24 h-7 text-xs font-black font-mono bg-white dark:bg-slate-950 rounded border border-slate-400 dark:border-slate-700 text-slate-900 dark:text-slate-50 text-center focus:ring-2 focus:ring-emerald-500 outline-none shadow-inner"
-                      />
-                    </div>
+                          }}
+                          className="w-24 h-7 text-xs font-black font-mono bg-white dark:bg-slate-950 rounded border border-slate-400 dark:border-slate-700 text-slate-900 dark:text-slate-50 text-center focus:ring-2 focus:ring-emerald-500 outline-none shadow-inner"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 shadow-xs text-xs font-black font-mono text-slate-800 dark:text-slate-200">
+                        <Lock className="h-3 w-3 text-slate-400 shrink-0" />
+                        <span>₦{unitPrice.toLocaleString("en-NG")}</span>
+                      </div>
+                    )}
                     
                     {(() => {
                       const conversions = getEffectiveUnitConversions(ci.item);
@@ -276,20 +317,26 @@ export function SalesStepCart({
                       );
                     })()}
 
-                    {isOverridden ? (
-                      <div className="flex items-center gap-1 bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/20 px-1.5 py-0.5 rounded text-[8px] font-bold text-amber-700 dark:text-amber-300 whitespace-nowrap">
-                        <span>Deal (Original: ₦{originalPrice.toLocaleString()})</span>
-                        <button
-                          type="button"
-                          onClick={() => onOverridePrice?.(uniqueKey, undefined)}
-                          className="text-amber-900 dark:text-amber-200 hover:underline font-extrabold ml-1 border-l border-amber-500/30 pl-1"
-                        >
-                          Reset
-                        </button>
-                      </div>
+                    {allowPriceOverride ? (
+                      isOverridden ? (
+                        <div className="flex items-center gap-1 bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/20 px-1.5 py-0.5 rounded text-[8px] font-bold text-amber-700 dark:text-amber-300 whitespace-nowrap">
+                          <span>Deal (Original: ₦{originalPrice.toLocaleString()})</span>
+                          <button
+                            type="button"
+                            onClick={() => onOverridePrice?.(uniqueKey, undefined)}
+                            className="text-amber-900 dark:text-amber-200 hover:underline font-extrabold ml-1 border-l border-amber-500/30 pl-1"
+                          >
+                            Reset
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[8px] text-muted-foreground/60 italic hidden sm:inline">
+                          Custom override available
+                        </span>
+                      )
                     ) : (
                       <span className="text-[8px] text-muted-foreground/60 italic hidden sm:inline">
-                        Custom override available
+                        Price locked by Smart Features
                       </span>
                     )}
                   </div>

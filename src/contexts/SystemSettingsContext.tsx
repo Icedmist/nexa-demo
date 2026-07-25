@@ -36,6 +36,9 @@ export interface StoreSettings {
   categories: string[];
   isOnboarded: boolean;
   moniepointKey?: string;
+  moniepointAccountNumber?: string;
+  moniepointAccountName?: string;
+  moniepointBankName?: string;
   aiAssistantApiKey?: string;
   storeSlug?: string;
   onboardedAt?: string;

@@ -99,6 +99,8 @@ function StoreLayout() {
         const data = snap.data();
         setMessages(data.messages || []);
       }
+    }, (error) => {
+      console.warn("Support chats listener info:", error.message);
     });
 
     return unsub;

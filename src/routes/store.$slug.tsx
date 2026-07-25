@@ -1,8 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo, useEffect } from "react";
 import { useItems, useCategories } from "@/hooks/useInventoryData";
 import { QRCodeSVG } from "qrcode.react";
 import { logQRLeadEvent } from "@/utils/qrTracking";
+import { AuthModal } from "@/components/auth/AuthModal";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   ShoppingBag, 
   Search, 
@@ -21,7 +23,9 @@ import {
   Locate,
   Check,
   Ticket,
-  QrCode
+  QrCode,
+  User,
+  Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +50,8 @@ interface CartItem extends SaleItem {
 
 function PublicStorefront() {
   const { slug } = Route.useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: allItems, isLoading } = useItems();
   const { data: categories } = useCategories();
   const { isDemo, onboarding: demoOnboarding } = useDemo();
@@ -54,6 +60,7 @@ function PublicStorefront() {
   
   const onboarding = isDemo ? demoOnboarding : liveSettings;
   const [search, setSearch] = useState("");
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   // Log QR scan lead event if qrSourceId is present
   useEffect(() => {
@@ -346,19 +353,42 @@ function PublicStorefront() {
                <p className="text-[9px] text-muted-foreground mt-1 uppercase tracking-widest font-bold">Verified Merchant</p>
              </div>
            </div>
-           <Button 
-             variant="ghost" 
-             size="icon" 
-             className="relative hover:bg-muted" 
-             onClick={() => setIsCartOpen(true)}
-           >
-             <ShoppingBag className="h-6 w-6" />
-             {cart.length > 0 && (
-               <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary text-[10px] font-bold text-white rounded-full flex items-center justify-center animate-in zoom-in duration-300">
-                 {cart.reduce((a, b) => a + b.quantity, 0)}
-               </span>
+           <div className="flex items-center gap-2">
+             {user ? (
+               <Button
+                 variant="outline"
+                 size="sm"
+                 className="gap-1.5 text-xs font-bold border-primary/30 hover:bg-primary/10 text-primary"
+                 onClick={() => navigate({ to: "/app/dashboard" })}
+               >
+                 <Lock className="h-3.5 w-3.5" />
+                 <span>Store Dashboard</span>
+               </Button>
+             ) : (
+               <Button
+                 variant="outline"
+                 size="sm"
+                 className="gap-1.5 text-xs font-bold border-primary/30 hover:bg-primary/10 text-primary"
+                 onClick={() => setAuthModalOpen(true)}
+               >
+                 <Lock className="h-3.5 w-3.5" />
+                 <span>Staff Login</span>
+               </Button>
              )}
-           </Button>
+             <Button 
+               variant="ghost" 
+               size="icon" 
+               className="relative hover:bg-muted" 
+               onClick={() => setIsCartOpen(true)}
+             >
+               <ShoppingBag className="h-6 w-6" />
+               {cart.length > 0 && (
+                 <span className="absolute -top-1 -right-1 h-4 w-4 bg-primary text-[10px] font-bold text-white rounded-full flex items-center justify-center animate-in zoom-in duration-300">
+                   {cart.reduce((a, b) => a + b.quantity, 0)}
+                 </span>
+               )}
+             </Button>
+           </div>
         </div>
       </header>
 
@@ -1086,6 +1116,13 @@ function PublicStorefront() {
           <span className="absolute -top-1 px-2 py-0.5 bg-background border border-border rounded-full text-[10px] font-bold text-foreground opacity-0 group-hover:opacity-100 transition-opacity">Chat</span>
         </a>
       )}
+
+      {/* Staff Auth Modal */}
+      <AuthModal 
+        isOpen={authModalOpen} 
+        onClose={() => setAuthModalOpen(false)} 
+        defaultTab="login" 
+      />
     </div>
   );
 }

@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Plus, Upload, QrCode } from "lucide-react";
+import { Plus, Upload, QrCode, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CSVExportButton, type CSVColumn } from "@/components/data/CSVExportButton";
 import { CSVImportSheet, type ImportField } from "@/components/data/CSVImportSheet";
+import { CSVImportGuideModal } from "@/components/data/CSVImportGuideModal";
 import { QuickEntryModal } from "@/components/catalog/QuickEntryModal";
 import { InStoreQRGeneratorModal } from "@/components/catalog/InStoreQRGeneratorModal";
 import {
@@ -114,6 +115,7 @@ function CatalogPage() {
   const [deleteTarget, setDeleteTarget] = useState<Item | null>(null);
   const [movementItemId, setMovementItemId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [isInStoreQRGeneratorOpen, setIsInStoreQRGeneratorOpen] = useState(false);
   const [view, setView] = useState<"list" | "grid">(() => {
@@ -298,6 +300,16 @@ function CatalogPage() {
           <PermissionGate permission="create_item">
             <Button variant="outline" size="sm" className="hidden gap-1.5 sm:inline-flex" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4" />Import
+            </Button>
+          </PermissionGate>
+          <PermissionGate permission="create_item">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="hidden gap-1.5 sm:inline-flex border-emerald-500/30 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold"
+              onClick={() => setGuideOpen(true)}
+            >
+              <HelpCircle className="h-4 w-4" />CSV & AI Guide
             </Button>
           </PermissionGate>
           <PermissionGate permission="create_item">
@@ -508,6 +520,11 @@ function CatalogPage() {
       <InStoreQRGeneratorModal
         open={isInStoreQRGeneratorOpen}
         onOpenChange={setIsInStoreQRGeneratorOpen}
+      />
+
+      <CSVImportGuideModal
+        open={guideOpen}
+        onOpenChange={setGuideOpen}
       />
     </div>
   );

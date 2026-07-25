@@ -35,11 +35,43 @@ export interface EmailProvider {
 }
 
 export class GmailApiEmailProvider implements EmailProvider {
-  private accessToken: string | null = null;
+  private async getValidAccessToken(): Promise<string | null> {
+    // 1. Direct Access Token
+    if (process.env.GMAIL_ACCESS_TOKEN) {
+      return process.env.GMAIL_ACCESS_TOKEN;
+    }
 
-  constructor() {
-    // Attempt to read from environment variables first
-    this.accessToken = process.env.GMAIL_ACCESS_TOKEN || null;
+    // 2. Auto-renew via Refresh Token if available
+    const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+    const clientId = process.env.GMAIL_CLIENT_ID;
+    const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+
+    if (refreshToken && clientId && clientSecret) {
+      try {
+        const res = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: refreshToken,
+            grant_type: "refresh_token",
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.access_token) {
+            return data.access_token;
+          }
+        } else {
+          console.error("[Gmail API]: Failed to refresh token", await res.text());
+        }
+      } catch (err) {
+        console.error("[Gmail API]: Token refresh exception:", err);
+      }
+    }
+
+    return null;
   }
 
   async send(
@@ -48,9 +80,11 @@ export class GmailApiEmailProvider implements EmailProvider {
     htmlBody: string,
     attachments: Array<{ filename: string; content: Buffer }>
   ): Promise<{ success: boolean; simulated: boolean; error?: string }> {
-    if (!this.accessToken) {
+    const token = await this.getValidAccessToken();
+
+    if (!token) {
       console.warn(
-        "[Gmail API]: GMAIL_ACCESS_TOKEN environment variable not set. Falling back to sandbox delivery simulation."
+        "[Gmail API]: Neither GMAIL_ACCESS_TOKEN nor (GMAIL_REFRESH_TOKEN + GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET) environment variables are configured. Falling back to sandbox delivery simulation."
       );
       return { success: true, simulated: true };
     }
@@ -63,7 +97,7 @@ export class GmailApiEmailProvider implements EmailProvider {
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${this.accessToken}`,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({

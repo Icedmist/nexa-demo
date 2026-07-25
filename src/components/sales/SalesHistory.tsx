@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
-import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, Globe, Monitor, FileText } from "lucide-react";
+import { CalendarIcon, Receipt, TrendingUp, Printer, MessageCircle, RotateCcw, User, Clock, CreditCard, Banknote, Smartphone, Globe, Monitor, FileText, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -448,16 +448,34 @@ export function SalesHistoryPage() {
               <Separator />
 
               <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Items Purchased</h4>
-                {selectedSale.items.map((li, idx) => (
-                  <div key={idx} className="flex items-center justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{li.itemName}</p>
-                      <p className="text-[11px] text-muted-foreground">{li.quantity} x {fmtNgn(li.unitPriceNgn)}</p>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold">Items Purchased</h4>
+                  {selectedSale.items.some(li => li.originalUnitPriceNgn && Math.abs(li.originalUnitPriceNgn - li.unitPriceNgn) > 0.01) && (
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-bold gap-1">
+                      <Tag className="h-3 w-3" /> Custom Price Override
+                    </Badge>
+                  )}
+                </div>
+                {selectedSale.items.map((li, idx) => {
+                  const hasOverride = li.originalUnitPriceNgn && Math.abs(li.originalUnitPriceNgn - li.unitPriceNgn) > 0.01;
+                  return (
+                    <div key={idx} className="p-2 rounded-lg bg-muted/30 border border-border/50 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{li.itemName}</p>
+                          <p className="text-[11px] text-muted-foreground">{li.quantity} {li.unit || "pcs"} × {fmtNgn(li.unitPriceNgn)}</p>
+                        </div>
+                        <span className="font-mono text-sm font-semibold shrink-0">{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
+                      </div>
+                      {hasOverride && (
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/30 w-fit">
+                          <Tag className="h-3 w-3 shrink-0" />
+                          <span>Price Overridden: Original {fmtNgn(li.originalUnitPriceNgn!)} → Sold at {fmtNgn(li.unitPriceNgn)}</span>
+                        </div>
+                      )}
                     </div>
-                    <span className="font-mono text-sm font-semibold shrink-0">{fmtNgn(li.unitPriceNgn * li.quantity)}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <Separator />

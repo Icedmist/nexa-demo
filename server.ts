@@ -1424,36 +1424,61 @@ Please contact us directly on WhatsApp at **${storeInfo?.storePhone || "our supp
 
   // Helper to ensure config is seeded
   const ensureAiConfig = async (db: import("firebase/firestore").Firestore) => {
-    const { doc, getDoc, setDoc } = await import("firebase/firestore");
-    const configRef = doc(db, "aiAssistantConfig", "default");
-    const snap = await getDoc(configRef);
-    if (!snap.exists()) {
-      await setDoc(configRef, {
-        creditsIncluded: {
-          starter: 0,
-          professional: 0,
-          enterprise: 100
-        },
+    try {
+      const { doc, getDoc, setDoc } = await import("firebase/firestore");
+      const configRef = doc(db, "aiAssistantConfig", "default");
+      const snap = await getDoc(configRef);
+      if (!snap.exists()) {
+        await setDoc(configRef, {
+          creditsIncluded: {
+            starter: 0,
+            professional: 0,
+            enterprise: 100
+          },
+          topUpPriceNgn: 5000,
+          topUpCredits: 50
+        });
+      }
+      return snap.exists() ? snap.data() : {
+        creditsIncluded: { starter: 0, professional: 0, enterprise: 100 },
         topUpPriceNgn: 5000,
         topUpCredits: 50
-      });
+      };
+    } catch (err) {
+      console.warn("Nexa OS Info: Offline or unreachable Firestore in ensureAiConfig, returning fallback config:", err);
+      return {
+        creditsIncluded: { starter: 0, professional: 0, enterprise: 100 },
+        topUpPriceNgn: 5000,
+        topUpCredits: 50
+      };
     }
-    return snap.exists() ? snap.data() : {
-      creditsIncluded: { starter: 0, professional: 0, enterprise: 100 },
-      topUpPriceNgn: 5000,
-      topUpCredits: 50
-    };
   };
 
   // Helper to seed monthly credit ledger
   const getOrCreateLedger = async (db: import("firebase/firestore").Firestore, storeId: string, period: string, tier: string) => {
-    const { doc, getDoc, setDoc } = await import("firebase/firestore");
-    const config = await ensureAiConfig(db);
-    const ledgerRef = doc(db, "aiCreditLedger", `${storeId}_${period}`);
-    const snap = await getDoc(ledgerRef);
-    if (!snap.exists()) {
-      const creditsIncluded = config.creditsIncluded[tier] ?? (tier === "enterprise" ? 100 : 0);
-      const newLedger = {
+    try {
+      const { doc, getDoc, setDoc } = await import("firebase/firestore");
+      const config = await ensureAiConfig(db);
+      const ledgerRef = doc(db, "aiCreditLedger", `${storeId}_${period}`);
+      const snap = await getDoc(ledgerRef);
+      if (!snap.exists()) {
+        const creditsIncluded = config.creditsIncluded[tier] ?? (tier === "enterprise" ? 100 : 0);
+        const newLedger = {
+          storeId,
+          period,
+          creditsIncluded,
+          creditsUsed: 0,
+          creditsPurchased: 0,
+          lastUpdated: new Date().toISOString()
+        };
+        await setDoc(ledgerRef, newLedger);
+        return newLedger;
+      }
+      return snap.data();
+    } catch (err) {
+      console.warn("Nexa OS Info: Offline or unreachable Firestore in getOrCreateLedger, returning fallback ledger:", err);
+      const creditsIncluded = tier === "enterprise" ? 100 : (tier === "professional" ? 50 : 0);
+      return {
         storeId,
         period,
         creditsIncluded,
@@ -1461,10 +1486,7 @@ Please contact us directly on WhatsApp at **${storeInfo?.storePhone || "our supp
         creditsPurchased: 0,
         lastUpdated: new Date().toISOString()
       };
-      await setDoc(ledgerRef, newLedger);
-      return newLedger;
     }
-    return snap.data();
   };
 
   // Endpoint to get AI Assistant Config
@@ -1474,8 +1496,12 @@ Please contact us directly on WhatsApp at **${storeInfo?.storePhone || "our supp
       const config = await ensureAiConfig(db);
       res.json(config);
     } catch (err: unknown) {
-      console.error("[AI Config Error]:", err);
-      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      console.warn("[AI Config Warning]: Using fallback configuration due to offline database:", err);
+      res.json({
+        creditsIncluded: { starter: 0, professional: 0, enterprise: 100 },
+        topUpPriceNgn: 5000,
+        topUpCredits: 50
+      });
     }
   });
 
@@ -1490,9 +1516,13 @@ Please contact us directly on WhatsApp at **${storeInfo?.storePhone || "our supp
       // Get store tier
       let tier = "enterprise";
       if (targetStoreId !== "global-store" && targetStoreId !== "super-admin" && targetStoreId !== "system") {
-        const storeSnap = await getDoc(doc(db, "stores", targetStoreId));
-        if (storeSnap.exists()) {
-          tier = storeSnap.data()?.subscriptionTier || "enterprise";
+        try {
+          const storeSnap = await getDoc(doc(db, "stores", targetStoreId));
+          if (storeSnap.exists()) {
+            tier = storeSnap.data()?.subscriptionTier || "enterprise";
+          }
+        } catch {
+          // Default to enterprise if offline
         }
       }
 
@@ -1500,8 +1530,16 @@ Please contact us directly on WhatsApp at **${storeInfo?.storePhone || "our supp
       const ledger = await getOrCreateLedger(db, targetStoreId, period, tier);
       res.json(ledger);
     } catch (err: unknown) {
-      console.error("[AI Credits Error]:", err);
-      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      console.warn("[AI Credits Falling Back]: Returning offline default ledger:", err);
+      const period = new Date().toISOString().slice(0, 7);
+      res.json({
+        storeId: targetStoreId,
+        period,
+        creditsIncluded: 100,
+        creditsUsed: 0,
+        creditsPurchased: 0,
+        lastUpdated: new Date().toISOString()
+      });
     }
   });
 
@@ -2207,7 +2245,7 @@ Provide the response as clean structured JSON.`;
 
       // Fetch store items for context
       const itemsSnap = await getDocs(collection(db, "items"));
-      const storeItems: any[] = [];
+      const storeItems: Record<string, unknown>[] = [];
       itemsSnap.forEach((d) => {
         const itemData = d.data();
         if (!targetStoreId || targetStoreId === "global-store" || itemData.storeId === targetStoreId) {
@@ -2223,7 +2261,7 @@ Provide the response as clean structured JSON.`;
       });
 
       const activeAi = getGeminiClient();
-      let resultModel = "gemini-flash-latest";
+      const resultModel = "gemini-flash-latest";
 
       const promptText = `Analyze the following store catalog (${storeItems.length} items) and generate 3 strategic recommendations combining user behavior & market usage intelligence.
 Items context: ${JSON.stringify(storeItems.slice(0, 15))}

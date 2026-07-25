@@ -280,6 +280,17 @@ export function SalesStepCheckout({
           const conv = ci.item.unitConversions.find(c => c.unitId === ci.selectedUnit);
           if (conv) multiplier = conv.multiplier;
         }
+
+        let origPrice = resolvePrice(ci.item, onboarding?.pricingMode || "single", activeTier);
+        if (ci.selectedUnit && ci.selectedUnit !== ci.item.unit && ci.item.unitConversions) {
+          const conv = ci.item.unitConversions.find(c => c.unitId === ci.selectedUnit);
+          if (conv) {
+            origPrice = conv.priceNgn !== undefined 
+              ? conv.priceNgn / USD_TO_NGN 
+              : origPrice * conv.multiplier;
+          }
+        }
+        const originalUnitPriceNgn = origPrice * USD_TO_NGN;
         
         const configDesc = ci.configStr ? ` (${formatConfigShort(ci.configStr)})` : "";
         
@@ -291,6 +302,7 @@ export function SalesStepCheckout({
           unit,
           multiplier,
           unitPriceNgn: (ci.calculatedUnitPrice ?? ci.item.sellingPrice) * USD_TO_NGN,
+          originalUnitPriceNgn,
           imageUrl: ci.item.imageUrl ?? undefined,
         };
       }),

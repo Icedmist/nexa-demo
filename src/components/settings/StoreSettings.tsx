@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Store, Save, ShieldAlert, Mail, FileText, MapPin, Trash2, Plus, Building2, ExternalLink, Copy, Sparkles, Layers, ShieldCheck, Zap, ArrowUpRight, Eye, EyeOff } from "lucide-react";
+import { Store, Save, ShieldAlert, Mail, FileText, MapPin, Trash2, Plus, Building2, ExternalLink, Copy, Sparkles, Layers, ShieldCheck, Zap, ArrowUpRight, Eye, EyeOff, Landmark, HelpCircle } from "lucide-react";
 import { PaymentDialog } from "@/components/settings/PaymentDialog";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
@@ -12,7 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { collection, getDocs, query, where, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useLocations, useSales, useItems } from "@/hooks/useInventoryData";
@@ -50,7 +52,11 @@ export function StoreSettings() {
   const [receiptFooter, setReceiptFooter] = useState(activeSettings.receiptFooter || "");
   const [taxRate, setTaxRate] = useState(activeSettings.taxRate?.toString() || "0");
   const [moniepointKey, setMoniepointKey] = useState(activeSettings.moniepointKey || "");
+  const [moniepointAccountNumber, setMoniepointAccountNumber] = useState(activeSettings.moniepointAccountNumber || "");
+  const [moniepointAccountName, setMoniepointAccountName] = useState(activeSettings.moniepointAccountName || "");
+  const [moniepointBankName, setMoniepointBankName] = useState(activeSettings.moniepointBankName || "Moniepoint Microfinance Bank");
   const [showMoniepointKey, setShowMoniepointKey] = useState(false);
+  const [showMoniepointGuide, setShowMoniepointGuide] = useState(false);
   const [storeSlug, setStoreSlug] = useState(activeSettings.storeSlug || "");
   const [pricingMode, setPricingMode] = useState<"single" | "tiered">(activeSettings.pricingMode || "single");
   const [currency, setCurrency] = useState(activeSettings.currency || "NGN");
@@ -83,6 +89,9 @@ export function StoreSettings() {
     setReceiptFooter(activeSettings.receiptFooter || "");
     setTaxRate(activeSettings.taxRate?.toString() || "0");
     setMoniepointKey(activeSettings.moniepointKey || "");
+    setMoniepointAccountNumber(activeSettings.moniepointAccountNumber || "");
+    setMoniepointAccountName(activeSettings.moniepointAccountName || "");
+    setMoniepointBankName(activeSettings.moniepointBankName || "Moniepoint Microfinance Bank");
     setStoreSlug(activeSettings.storeSlug || "");
     setPricingMode(activeSettings.pricingMode || "single");
     setCurrency(activeSettings.currency || "NGN");
@@ -92,24 +101,7 @@ export function StoreSettings() {
     setReportFrequency(activeSettings.reportPreferences?.frequency || "off");
     setRecipientEmail(activeSettings.reportPreferences?.recipientEmail || "");
     setPublicStorefrontEnabled((activeSettings as Record<string, unknown>).publicStorefrontEnabled as boolean || false);
-  }, [
-    activeSettings.storeName,
-    activeSettings.storePhone,
-    activeSettings.storeAddress,
-    activeSettings.storeDescription,
-    activeSettings.receiptFooter,
-    activeSettings.taxRate,
-    activeSettings.moniepointKey,
-    activeSettings.storeSlug,
-    activeSettings.pricingMode,
-    activeSettings.currency,
-    activeSettings.country,
-    activeSettings.state,
-    activeSettings.lga,
-    activeSettings.reportPreferences?.frequency,
-    activeSettings.reportPreferences?.recipientEmail,
-    (activeSettings as Record<string, unknown>).publicStorefrontEnabled
-  ]);
+  }, [activeSettings]);
 
   const totalRevenue = sales.reduce((sum, s) => sum + (s.totalNgn || 0), 0);
   const branches = locations.filter(l => l.parentId === null && l.type === "warehouse");
@@ -209,6 +201,9 @@ export function StoreSettings() {
       receiptFooter: receiptFooter.trim(),
       taxRate: parseFloat(taxRate) || 0,
       moniepointKey: moniepointKey.trim(),
+      moniepointAccountNumber: moniepointAccountNumber.trim(),
+      moniepointAccountName: moniepointAccountName.trim(),
+      moniepointBankName: moniepointBankName.trim() || "Moniepoint Microfinance Bank",
       storeSlug: storeSlug.trim(),
       pricingMode: pricingMode,
       currency: currency,
@@ -684,45 +679,133 @@ export function StoreSettings() {
 
           <div className="space-y-6 pt-4 border-t border-border">
             <div className="space-y-2">
-              <h3 className="text-sm font-bold">Online Storefront & Integration</h3>
-              <p className="text-xs text-muted-foreground">Configure your public link and payment integrations.</p>
+              <h3 className="text-sm font-bold flex items-center justify-between">
+                <span>Online Storefront & Moniepoint Gateway</span>
+                {flags.planId === "starter" ? (
+                  <Badge className="bg-amber-500 text-amber-950 text-[10px] font-extrabold uppercase">Pro & Enterprise Only</Badge>
+                ) : (
+                  <Badge variant="outline" className="text-emerald-600 border-emerald-500/30 bg-emerald-500/5 text-[10px] font-bold">
+                    Pro / Enterprise Unlocked
+                  </Badge>
+                )}
+              </h3>
+              <p className="text-xs text-muted-foreground">Configure public store URL, Moniepoint API key, and checkout bank transfer details.</p>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="store-slug">Custom Store URL</Label>
-                <div className="flex items-center">
-                  <span className="px-3 py-2 bg-muted border border-r-0 border-border rounded-l-md text-xs text-muted-foreground whitespace-nowrap">nexa.store/</span>
-                  <Input 
-                    id="store-slug" 
-                    value={storeSlug} 
-                    onChange={(e) => setStoreSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-"))} 
-                    placeholder="adebayo-tech"
-                    className="rounded-l-none"
-                  />
+
+            {flags.planId === "starter" ? (
+              <div className="bg-gradient-to-br from-amber-500/5 via-primary/5 to-muted border border-amber-500/20 rounded-xl p-5 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 bg-amber-500/10 rounded-xl text-amber-600 dark:text-amber-400 shrink-0">
+                    <Landmark className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-foreground">
+                      Moniepoint Gateway & Storefront Integration Gated
+                    </h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Moniepoint automated API transfer verification, custom bank account checkout details, and dynamic Shop QR code flyers are available exclusively on Professional and Enterprise plans.
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="moniepoint-key">Moniepoint API Key</Label>
-                <div className="relative">
-                  <Input 
-                    id="moniepoint-key" 
-                    type={showMoniepointKey ? "text" : "password"} 
-                    value={moniepointKey} 
-                    onChange={(e) => setMoniepointKey(e.target.value)} 
-                    placeholder="sk_live_..."
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowMoniepointKey(!showMoniepointKey)}
-                    className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
-                    aria-label={showMoniepointKey ? "Hide API key" : "Show API key"}
+
+                <div className="pt-3 border-t border-amber-500/10 flex items-center justify-between gap-3">
+                  <span className="text-[11px] font-medium text-amber-800 dark:text-amber-300">
+                    Upgrade your plan to accept Moniepoint instant transfers & generate Shop QR flyers.
+                  </span>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setUpgradeTier("professional");
+                      setShowUpgradeModal(true);
+                    }}
+                    className="gap-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-amber-950 shrink-0"
                   >
-                    {showMoniepointKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                    <Sparkles className="h-3.5 w-3.5" /> Upgrade Plan
+                  </Button>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="store-slug">Custom Store URL</Label>
+                  <div className="flex items-center">
+                    <span className="px-3 py-2 bg-muted border border-r-0 border-border rounded-l-md text-xs text-muted-foreground whitespace-nowrap">nexa.store/</span>
+                    <Input 
+                      id="store-slug" 
+                      value={storeSlug} 
+                      onChange={(e) => setStoreSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-"))} 
+                      placeholder="adebayo-tech"
+                      className="rounded-l-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="moniepoint-key">Moniepoint API Key</Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowMoniepointGuide(true)}
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
+                    >
+                      <HelpCircle className="h-3 w-3" /> API Key Guide
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input 
+                      id="moniepoint-key" 
+                      type={showMoniepointKey ? "text" : "password"} 
+                      value={moniepointKey} 
+                      onChange={(e) => setMoniepointKey(e.target.value)} 
+                      placeholder="sk_live_..."
+                      className="pr-10 font-mono text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowMoniepointKey(!showMoniepointKey)}
+                      className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+                      aria-label={showMoniepointKey ? "Hide API key" : "Show API key"}
+                    >
+                      {showMoniepointKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="moniepoint-account-no">Moniepoint Account Number</Label>
+                  <Input 
+                    id="moniepoint-account-no" 
+                    value={moniepointAccountNumber} 
+                    onChange={(e) => setMoniepointAccountNumber(e.target.value.replace(/[^0-9]/g, ""))} 
+                    placeholder="e.g. 8132119637"
+                    maxLength={10}
+                    className="font-mono text-xs"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="moniepoint-account-name">Moniepoint Account Name</Label>
+                  <Input 
+                    id="moniepoint-account-name" 
+                    value={moniepointAccountName} 
+                    onChange={(e) => setMoniepointAccountName(e.target.value)} 
+                    placeholder="e.g. Adebayo Enterprise Ltd"
+                    className="text-xs"
+                  />
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="moniepoint-bank-name">Moniepoint Bank Name</Label>
+                  <Input 
+                    id="moniepoint-bank-name" 
+                    value={moniepointBankName} 
+                    onChange={(e) => setMoniepointBankName(e.target.value)} 
+                    placeholder="e.g. Moniepoint Microfinance Bank"
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="space-y-6 pt-4 border-t border-border">
@@ -802,6 +885,77 @@ export function StoreSettings() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* ── Moniepoint API Key Setup Guide Dialog ── */}
+      <Dialog open={showMoniepointGuide} onOpenChange={setShowMoniepointGuide}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <div className="p-1.5 bg-blue-500/10 text-blue-600 rounded-lg">
+                <Landmark className="h-5 w-5" />
+              </div>
+              How to Get Your Moniepoint API Key
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Follow these simple steps to retrieve your API Secret Key from the Moniepoint app or web dashboard:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            <div className="flex gap-3 items-start p-3 bg-muted/40 rounded-xl border border-border">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">1</div>
+              <div>
+                <p className="font-bold text-foreground">Open Moniepoint Web or App</p>
+                <p className="text-muted-foreground mt-0.5">Log in to your Moniepoint POS / Business Mobile App or visit <a href="https://moniepoint.com" target="_blank" rel="noopener noreferrer" className="text-primary underline font-bold">moniepoint.com</a> on your browser.</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-start p-3 bg-muted/40 rounded-xl border border-border">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</div>
+              <div>
+                <p className="font-bold text-foreground">Navigate to Settings & Developer Tools</p>
+                <p className="text-muted-foreground mt-0.5">Tap or click <strong>Settings</strong> $\rightarrow$ <strong>Developer Tools / API Keys</strong> (or <strong>Online Payments & Webhooks</strong>).</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-start p-3 bg-muted/40 rounded-xl border border-border">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">3</div>
+              <div>
+                <p className="font-bold text-foreground">Generate or Copy Live Secret Key</p>
+                <p className="text-muted-foreground mt-0.5">Click <strong>"Generate API Key"</strong> or copy your existing secret key (starting with <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[11px] text-primary">sk_live_...</code>).</p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-start p-3 bg-muted/40 rounded-xl border border-border">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">4</div>
+              <div>
+                <p className="font-bold text-foreground">Paste & Save in NexaStoreOS</p>
+                <p className="text-muted-foreground mt-0.5">Paste the key into the <strong>Moniepoint API Key</strong> field, fill in your Moniepoint Account Number & Name, and click <strong>Save Settings</strong>.</p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => window.open("https://moniepoint.com", "_blank")}
+              className="gap-1.5 text-xs font-bold"
+            >
+              <ExternalLink className="h-3.5 w-3.5" /> Open Moniepoint
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setShowMoniepointGuide(false)}
+              className="text-xs font-bold"
+            >
+              Got It, Thanks!
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

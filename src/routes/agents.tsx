@@ -7,6 +7,7 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
+  sendPasswordResetEmail,
   type User
 } from "firebase/auth";
 import { 
@@ -58,7 +59,8 @@ import {
   Lock,
   BookOpen,
   ExternalLink,
-  Share2
+  Share2,
+  FileSpreadsheet
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -72,6 +74,11 @@ import "@/styles/landing.css";
 import { INITIAL_COURSE_MODULES, CourseModule } from "@/lib/course-data";
 import { ProtectedTourGuideViewer } from "@/components/shared/ProtectedTourGuideViewer";
 import { DemoPassGeneratorModal } from "@/components/shared/DemoPassGeneratorModal";
+import { CSVImportGuideContent } from "@/components/data/CSVImportGuideModal";
+import { AgentSidebar, type AgentTabType } from "@/components/agents/AgentSidebar";
+import { AgentHeader } from "@/components/agents/AgentHeader";
+import { AgentResourcesView } from "@/components/agents/AgentResourcesView";
+import { AgentVideoAcademyView } from "@/components/agents/AgentVideoAcademyView";
 
 export const Route = createFileRoute("/agents")({
   component: AgentsPage,
@@ -174,12 +181,14 @@ export function AgentsPage() {
     message: string;
   }>(null);
 
-  // Settings state
+  // Settings & Layout state
   const [settingsName, setSettingsName] = useState("");
   const [settingsPhone, setSettingsPhone] = useState("");
   const [settingsRegion, setSettingsRegion] = useState("");
   const [settingsRefCode, setSettingsRefCode] = useState("");
-  const [activeTab, setActiveTab] = useState<"performance" | "referrals" | "earnings" | "settings" | "academy">("performance");
+  const [activeTab, setActiveTab] = useState<AgentTabType>("performance");
+  const [sidebarMinimized, setSidebarMinimized] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Academy & Demo Pass Modal State
   const [showAgentDemoModal, setShowAgentDemoModal] = useState(false);
@@ -258,7 +267,7 @@ export function AgentsPage() {
 
         // Fetch Agent profile
         const agentDocRef = doc(db, "agents", user.uid);
-        const unsubscribeProfile = onSnapshot(agentDocRef, (docSnap) => {
+        const unsubscribeProfile = onSnapshot(agentDocRef, async (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as AgentProfile;
             setAgentProfile(data);
@@ -267,8 +276,45 @@ export function AgentsPage() {
             setSettingsRegion(data.region || "");
             setSettingsRefCode(data.referralCode);
           } else {
-            setAgentProfile(null);
+            // Auto-provision agent profile for authenticated user so they can access workspace
+            try {
+              const name = user.displayName || user.email?.split("@")[0] || "Growth Partner";
+              const refCode = (user.uid.substring(0, 6)).toUpperCase();
+              const refLink = `${window.location.origin}/?ref=${refCode}`;
+              const statePrefix = "NAT";
+              const randomId = Math.random().toString(36).substring(2, 6).toUpperCase();
+              const agentId = `NEXA-${randomId}-${statePrefix}`;
+
+              const newAgentDoc: AgentProfile = {
+                agentId,
+                fullName: name,
+                email: user.email || "",
+                phone: user.phoneNumber || "",
+                region: "National",
+                referralCode: refCode,
+                referralLink: refLink,
+                status: "approved",
+                commissionRulesApplied: "default_v1",
+                earnings: {
+                  pending: 0,
+                  paid: 0,
+                  reversed: 0
+                },
+                createdAt: new Date().toISOString()
+              };
+
+              await setDoc(doc(db, "agents", user.uid), newAgentDoc);
+              setAgentProfile(newAgentDoc);
+              setSettingsName(name);
+              setSettingsRefCode(refCode);
+            } catch (err) {
+              console.error("Failed to auto-provision agent profile:", err);
+              setAgentProfile(null);
+            }
           }
+          setLoading(false);
+        }, (err) => {
+          console.warn("Agent profile snapshot listener info:", err.message);
           setLoading(false);
         });
 
@@ -305,6 +351,8 @@ export function AgentsPage() {
             });
           }
           setReferrals(rawRefs);
+        }, (err) => {
+          console.warn("Agent referrals snapshot listener info:", err.message);
         });
 
         // Fetch Earnings
@@ -338,6 +386,8 @@ export function AgentsPage() {
           }
           rawEarn.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
           setEarnings(rawEarn);
+        }, (err) => {
+          console.warn("Agent earnings snapshot listener info:", err.message);
         });
 
         return () => {
@@ -492,54 +542,97 @@ export function AgentsPage() {
   // Login Handler
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!emailInput.trim() || !passwordInput) {
-      toast.error("Please enter email and password.");
+    const cleanEmail = emailInput.trim().toLowerCase();
+    if (!cleanEmail || !passwordInput) {
+      toast.error("Please enter both email and password.");
       return;
     }
 
     setSubmitting(true);
     try {
-      await signInWithEmailAndPassword(auth, emailInput.trim(), passwordInput);
-      toast.success("Welcome back to NexaStoreOS Agent Workspace!");
+      const userCred = await signInWithEmailAndPassword(auth, cleanEmail, passwordInput);
+      toast.success(`Welcome back, ${userCred.user.displayName || cleanEmail.split("@")[0]}!`);
       setShowAuthModal(false);
-    } catch (err) {
-      toast.error((err as Error).message);
+    } catch (err: unknown) {
+      const errObj = err as { code?: string; message?: string };
+      const code = errObj?.code || "";
+      let msg = "Invalid email or password. Please check your details.";
+      if (code === "auth/invalid-credential" || code === "auth/user-not-found" || code === "auth/wrong-password") {
+        msg = "Invalid email address or password. If you don't have an agent account yet, please Sign Up.";
+      } else if (code === "auth/invalid-email") {
+        msg = "Please enter a valid email address.";
+      } else if (code === "auth/too-many-requests") {
+        msg = "Too many failed login attempts. Please wait a minute and try again.";
+      }
+      toast.error(msg);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Forgot Password Handler
+  const handleForgotPassword = async () => {
+    const cleanEmail = emailInput.trim().toLowerCase();
+    if (!cleanEmail) {
+      toast.error("Please enter your registered email address above first.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      toast.success(`Password reset link sent to ${cleanEmail}. Please check your inbox.`);
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      toast.error(errObj?.message || "Failed to send reset link.");
+    }
+  };
+
+  // Logout Handler
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setAgentProfile(null);
+      setIsSuperAdmin(false);
+      toast.success("Signed out successfully.");
+    } catch (err) {
+      toast.error("Failed to sign out.");
     }
   };
 
   // Quick Sign Up Handler from Modal
   const handleQuickRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nameInput.trim() || !emailInput.trim() || !phoneInput.trim() || !passwordInput) {
+    const cleanName = nameInput.trim();
+    const cleanEmail = emailInput.trim().toLowerCase();
+    const cleanPhone = phoneInput.trim();
+
+    if (!cleanName || !cleanEmail || !cleanPhone || !passwordInput) {
       toast.error("Please fill in Name, Email, Phone, and Password.");
       return;
     }
     if (passwordInput.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+      toast.error("Password must be at least 6 characters long.");
       return;
     }
 
     setSubmitting(true);
     try {
-      const generatedCode = (customRefCodeInput.trim() || nameInput.trim().toLowerCase().replace(/[^a-z0-9]/g, "") + Math.floor(100 + Math.random() * 900)).toUpperCase();
+      const generatedCode = (customRefCodeInput.trim() || cleanName.toLowerCase().replace(/[^a-z0-9]/g, "") + Math.floor(100 + Math.random() * 900)).toUpperCase();
       const stateSelected = stateInput || "Taraba State";
       const statePrefix = stateSelected.substring(0, 3).toUpperCase();
       const randomId = Math.random().toString(36).substring(2, 6).toUpperCase();
       const agentId = `NEXA-${randomId}-${statePrefix}`;
 
-      const userCred = await createUserWithEmailAndPassword(auth, emailInput.trim(), passwordInput);
+      const userCred = await createUserWithEmailAndPassword(auth, cleanEmail, passwordInput);
       const userId = userCred.user.uid;
-      await updateProfile(userCred.user, { displayName: nameInput.trim() });
+      await updateProfile(userCred.user, { displayName: cleanName });
 
       const refLink = `${window.location.origin}/?ref=${generatedCode}`;
 
       await setDoc(doc(db, "users", userId), {
         id: userId,
-        name: nameInput.trim(),
-        email: emailInput.trim(),
-        phone: phoneInput.trim(),
+        name: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
         nin: ninInput.trim() || "",
         state: stateSelected,
         lga: lgaInput.trim() || stateSelected,
@@ -551,17 +644,12 @@ export function AgentsPage() {
         createdAt: new Date().toISOString()
       });
 
-      await setDoc(doc(db, "agents", userId), {
+      const newAgentDoc: AgentProfile = {
         agentId,
-        fullName: nameInput.trim(),
-        email: emailInput.trim(),
-        phone: phoneInput.trim(),
-        nin: ninInput.trim() || "",
+        fullName: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
         region: stateSelected,
-        state: stateSelected,
-        lga: lgaInput.trim() || stateSelected,
-        bank: bankInput || "Pending",
-        accountNumber: accountNoInput.trim() || "Pending",
         referralCode: generatedCode,
         referralLink: refLink,
         status: "approved",
@@ -572,12 +660,21 @@ export function AgentsPage() {
           reversed: 0
         },
         createdAt: new Date().toISOString()
-      });
+      };
+
+      await setDoc(doc(db, "agents", userId), newAgentDoc);
+      setAgentProfile(newAgentDoc);
 
       toast.success("Agent account created successfully! Welcome to your workspace.");
       setShowAuthModal(false);
-    } catch (err) {
-      toast.error((err as Error).message);
+    } catch (err: unknown) {
+      const errObj = err as { code?: string; message?: string };
+      if (errObj?.code === "auth/email-already-in-use") {
+        toast.info("This email is already registered. Switching to Sign In...");
+        setAuthTab("login");
+      } else {
+        toast.error(errObj?.message || "Registration failed.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -624,13 +721,6 @@ export function AgentsPage() {
     }
   };
 
-  // Sign out
-  const handleLogout = async () => {
-    await signOut(auth);
-    setIsSuperAdmin(false);
-    toast.success("Logged out successfully.");
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0B0C1E] flex items-center justify-center font-sans text-white">
@@ -654,72 +744,74 @@ export function AgentsPage() {
       </div>
 
       {/* NAV */}
-      <nav id="nav" className={scrolled ? "scrolled" : ""}>
-        <div className="nav-inner">
-          <div className="nav-brand" onClick={() => navigate({ to: "/" })}>
-            <div className="nav-logo">
-              <svg viewBox="0 0 24 24" fill="none" width="20" height="20">
-                <path d="M4 4L10 4L14 12L10 20H4L8 12L4 4Z" fill="white" opacity=".9"/>
-                <path d="M12 4H20L16 12L20 20H12L16 12L12 4Z" fill="white" opacity=".5"/>
-              </svg>
-            </div>
-            <span className="nav-name">NexaStoreOS<span> Agent</span></span>
-            <span className="nav-tag">Growth Partner</span>
-          </div>
-
-          <ul className="nav-links hidden md:flex">
-            <li><button onClick={() => scrollToSection("#income")} className="cursor-pointer">Income</button></li>
-            <li><button onClick={() => scrollToSection("#commissions")} className="cursor-pointer">Commissions</button></li>
-            <li><button onClick={() => scrollToSection("#how-it-works")} className="cursor-pointer">How It Works</button></li>
-            <li><button onClick={() => scrollToSection("#terms")} className="cursor-pointer">T&amp;Cs</button></li>
-            <li><button onClick={() => scrollToSection("#faq")} className="cursor-pointer">FAQ</button></li>
-          </ul>
-
-          <div className="flex items-center gap-3">
-            {isSuperAdmin && (
-              <Button 
-                onClick={() => navigate({ to: "/app/super-admin/agents-network" })}
-                className="bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-xs rounded-full px-3 py-1"
-              >
-                Super Admin
-              </Button>
-            )}
-
-            {currentUser ? (
-              <Button onClick={handleLogout} variant="outline" className="border-white/20 text-white hover:bg-white/10 text-xs rounded-full">
-                Sign Out ({agentProfile?.fullName.split(" ")[0] || "Agent"})
-              </Button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-all cursor-pointer ${
-                    showAuthModal && authTab === "login"
-                      ? "text-white bg-white/20"
-                      : "text-slate-300 hover:text-white hover:bg-white/10"
-                  }`}
-                  onClick={() => {
-                    setAuthTab("login");
-                    setShowAuthModal(true);
-                  }}
-                >
-                  Sign In
-                </button>
-                <button
-                  type="button"
-                  className="nav-cta text-xs px-4 py-1.5 font-bold rounded-full bg-gradient-to-r from-[#2B5BFF] to-[#00C4CF] text-white hover:opacity-90 transition-all cursor-pointer shadow-md"
-                  onClick={() => {
-                    setAuthTab("register");
-                    setShowAuthModal(true);
-                  }}
-                >
-                  Sign Up
-                </button>
+      {!currentUser && (
+        <nav id="nav" className={scrolled ? "scrolled" : ""}>
+          <div className="nav-inner">
+            <div className="nav-brand" onClick={() => navigate({ to: "/" })}>
+              <div className="nav-logo">
+                <svg viewBox="0 0 24 24" fill="none" width="20" height="20">
+                  <path d="M4 4L10 4L14 12L10 20H4L8 12L4 4Z" fill="white" opacity=".9"/>
+                  <path d="M12 4H20L16 12L20 20H12L16 12L12 4Z" fill="white" opacity=".5"/>
+                </svg>
               </div>
-            )}
+              <span className="nav-name">NexaStoreOS<span> Agent</span></span>
+              <span className="nav-tag">Growth Partner</span>
+            </div>
+
+            <ul className="nav-links hidden md:flex">
+              <li><button onClick={() => scrollToSection("#income")} className="cursor-pointer">Income</button></li>
+              <li><button onClick={() => scrollToSection("#commissions")} className="cursor-pointer">Commissions</button></li>
+              <li><button onClick={() => scrollToSection("#how-it-works")} className="cursor-pointer">How It Works</button></li>
+              <li><button onClick={() => scrollToSection("#terms")} className="cursor-pointer">T&amp;Cs</button></li>
+              <li><button onClick={() => scrollToSection("#faq")} className="cursor-pointer">FAQ</button></li>
+            </ul>
+
+            <div className="flex items-center gap-3">
+              {isSuperAdmin && (
+                <Button 
+                  onClick={() => navigate({ to: "/app/super-admin/agents-network" })}
+                  className="bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-xs rounded-full px-3 py-1"
+                >
+                  Super Admin
+                </Button>
+              )}
+
+              {currentUser ? (
+                <Button onClick={handleLogout} variant="outline" className="border-white/20 text-white hover:bg-white/10 text-xs rounded-full">
+                  Sign Out ({agentProfile?.fullName.split(" ")[0] || "Agent"})
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-all cursor-pointer ${
+                      showAuthModal && authTab === "login"
+                        ? "text-white bg-white/20"
+                        : "text-slate-300 hover:text-white hover:bg-white/10"
+                    }`}
+                    onClick={() => {
+                      setAuthTab("login");
+                      setShowAuthModal(true);
+                    }}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    className="nav-cta text-xs px-4 py-1.5 font-bold rounded-full bg-gradient-to-r from-[#2B5BFF] to-[#00C4CF] text-white hover:opacity-90 transition-all cursor-pointer shadow-md"
+                    onClick={() => {
+                      setAuthTab("register");
+                      setShowAuthModal(true);
+                    }}
+                  >
+                    Sign Up
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </nav>
+        </nav>
+      )}
 
       {/* RENDER VIEW: IF NOT LOGGED IN OR LANDING PAGE VIEW */}
       {!currentUser ? (
@@ -1672,35 +1764,116 @@ export function AgentsPage() {
       ) : agentProfile && agentProfile.status === "approved" ? (
         
         /* APPROVED AGENT WORKSPACE / DASHBOARD */
-        <div className="max-w-6xl mx-auto px-6 py-10 space-y-8 relative z-10">
-          
-          <div className="bg-[#141528] border border-white/10 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-extrabold text-white font-['Bricolage_Grotesque']">Agent Workspace: {agentProfile.fullName}</h2>
-                <Badge className="bg-emerald-500/20 text-[#4DE89A] font-bold border-none px-2.5 py-0.5 text-[10px] rounded-full uppercase tracking-wider">
-                  Active Partner
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-400">Share your exclusive partner link to begin onboarding merchants in your territory.</p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex items-center justify-between gap-2 bg-white/5 px-4 py-2.5 rounded-full border border-white/10 text-xs text-slate-300 font-mono">
-                <span>Code: {agentProfile.referralCode}</span>
-                <button onClick={copyReferralCode} className="text-slate-400 hover:text-[#00C4CF] transition-all pl-2 border-l border-white/10">
-                  {copiedCode ? <Check className="h-3.5 w-3.5 text-[#4DE89A]" /> : <Copy className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between gap-2 bg-white/5 px-4 py-2.5 rounded-full border border-white/10 text-xs text-slate-300 font-mono">
-                <span className="truncate max-w-[180px]">{agentProfile.referralLink}</span>
-                <button onClick={copyReferralLink} className="text-slate-400 hover:text-[#00C4CF] transition-all pl-2 border-l border-white/10">
-                  {copiedLink ? <Check className="h-3.5 w-3.5 text-[#4DE89A]" /> : <Copy className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-            </div>
+        <div className="min-h-screen bg-[#0B0C1E] text-white flex relative w-full">
+          {/* DESKTOP SIDEBAR */}
+          <div className="hidden md:block">
+            <AgentSidebar
+              activeTab={activeTab}
+              setActiveTab={(tab) => {
+                setActiveTab(tab);
+                setMobileMenuOpen(false);
+              }}
+              referralsCount={referrals.length}
+              earningsCount={earnings.length}
+              isMinimized={sidebarMinimized}
+              setIsMinimized={setSidebarMinimized}
+              onLogout={handleLogout}
+              agentName={agentProfile.fullName}
+              agentCode={agentProfile.referralCode}
+            />
           </div>
+
+          {/* MOBILE DRAWER */}
+          <AnimatePresence>
+            {mobileMenuOpen && (
+              <div className="fixed inset-0 z-50 md:hidden flex">
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+                />
+                <motion.div
+                  initial={{ x: "-100%" }}
+                  animate={{ x: 0 }}
+                  exit={{ x: "-100%" }}
+                  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                  className="relative z-10 w-72 h-full bg-[#0B0C1E] border-r border-white/10"
+                >
+                  <AgentSidebar
+                    activeTab={activeTab}
+                    setActiveTab={(tab) => {
+                      setActiveTab(tab);
+                      setMobileMenuOpen(false);
+                    }}
+                    referralsCount={referrals.length}
+                    earningsCount={earnings.length}
+                    isMinimized={false}
+                    setIsMinimized={() => {}}
+                    onLogout={handleLogout}
+                    agentName={agentProfile.fullName}
+                    agentCode={agentProfile.referralCode}
+                  />
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
+          {/* MAIN CONTENT AREA */}
+          <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
+            sidebarMinimized ? "md:ml-20" : "md:ml-64"
+          }`}>
+            <AgentHeader
+              onOpenMobileMenu={() => setMobileMenuOpen(true)}
+              onOpenDemoPassModal={() => setShowAgentDemoModal(true)}
+              onOpenAuthModal={() => setShowAuthModal(true)}
+              isAuthenticated={!!currentUser}
+              agentName={agentProfile.fullName}
+              agentEmail={agentProfile.email}
+              onLogout={handleLogout}
+              activeTabTitle={
+                activeTab === "performance" ? "Performance Analytics & Growth Overview" :
+                activeTab === "referrals" ? "Onboarded Retail Merchants" :
+                activeTab === "earnings" ? "Payout History & Commission Ledger" :
+                activeTab === "resources" ? "File Resource & Marketing Collateral Center" :
+                activeTab === "video-academy" ? "Field Agent Video Training Academy" :
+                activeTab === "csv-guide" ? "Stock CSV Migration & AI Prompt Converter" :
+                "Agent Territory & Profile Settings"
+              }
+            />
+
+            <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6">
+              {/* TOP PROFILE & LINK BAR */}
+              <div className="bg-[#141528] border border-white/10 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl md:text-2xl font-extrabold text-white font-['Bricolage_Grotesque']">
+                      Welcome, {agentProfile.fullName}
+                    </h2>
+                    <Badge className="bg-emerald-500/20 text-[#4DE89A] font-bold border-none px-2.5 py-0.5 text-[10px] rounded-full uppercase tracking-wider">
+                      Active Partner
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-400">Share your referral link to track onboarding activity in your territory.</p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex items-center justify-between gap-2 bg-white/5 px-4 py-2.5 rounded-2xl border border-white/10 text-xs text-slate-300 font-mono">
+                    <span>Code: {agentProfile.referralCode}</span>
+                    <button onClick={copyReferralCode} className="text-slate-400 hover:text-[#00C4CF] transition-all pl-2 border-l border-white/10">
+                      {copiedCode ? <Check className="h-3.5 w-3.5 text-[#4DE89A]" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 bg-white/5 px-4 py-2.5 rounded-2xl border border-white/10 text-xs text-slate-300 font-mono">
+                    <span className="truncate max-w-[180px]">{agentProfile.referralLink}</span>
+                    <button onClick={copyReferralLink} className="text-slate-400 hover:text-[#00C4CF] transition-all pl-2 border-l border-white/10">
+                      {copiedLink ? <Check className="h-3.5 w-3.5 text-[#4DE89A]" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
 
           {/* KPI CARDS */}
           <div className="grid gap-4 md:grid-cols-4 sm:grid-cols-2">
@@ -1786,6 +1959,15 @@ export function AgentsPage() {
               }`}
             >
               <span>🎓</span> Marketing &amp; Course Academy
+            </button>
+            <button 
+              onClick={() => setActiveTab("csv-guide")}
+              className={`pb-3 text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === "csv-guide" ? "border-[#00C4CF] text-[#00C4CF]" : "border-transparent text-slate-400 hover:text-white"
+              }`}
+            >
+              <FileSpreadsheet className="h-4 w-4 text-[#4DE89A]" />
+              <span>CSV Migration &amp; AI Tool</span>
             </button>
             <button 
               onClick={() => setActiveTab("settings")}
@@ -1909,168 +2091,35 @@ export function AgentsPage() {
               </Card>
             )}
 
-            {activeTab === "academy" && (
-              <div className="space-y-6">
-                {/* Header Banner */}
-                <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-[#00C4CF]/20 text-[#00C4CF] border-none text-[10px] uppercase font-bold">
-                          Field Agent Hub
-                        </Badge>
-                        <span className="text-xs text-slate-400 font-mono">
-                          {INITIAL_COURSE_MODULES.length} Course Modules
-                        </span>
-                      </div>
-                      <h2 className="text-xl font-bold font-['Bricolage_Grotesque'] text-white">
-                        Agent Marketing &amp; Course Training Academy
-                      </h2>
-                      <p className="text-xs text-slate-400 max-w-2xl">
-                        Access high-converting field pitch scripts, watch step-by-step video tutorials, share protected PDF tour guides, and generate 12-hour device-locked demo links for prospective merchants.
-                      </p>
-                    </div>
+            {activeTab === "resources" && (
+              <AgentResourcesView />
+            )}
 
-                    <Button
-                      className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs h-10 gap-2 shrink-0 rounded-xl"
-                      onClick={() => setShowAgentDemoModal(true)}
-                    >
-                      <Lock className="h-4 w-4 text-amber-900" /> Generate 12h Demo Link
-                    </Button>
+            {(activeTab === "video-academy" || activeTab === "academy") && (
+              <AgentVideoAcademyView />
+            )}
+
+            {activeTab === "csv-guide" && (
+              <div className="space-y-6">
+                <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-[#4DE89A]/20 text-[#4DE89A] border-none text-[10px] uppercase font-bold">
+                        Field Agent Migration Suite
+                      </Badge>
+                    </div>
+                    <h2 className="text-xl font-bold font-['Bricolage_Grotesque'] text-white">
+                      Merchant CSV Inventory Import &amp; AI Format Converter
+                    </h2>
+                    <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
+                      Use this tool when helping new retail merchants migrate their stock registers, Excel lists, paper logs, or legacy software data into NexaStoreOS. Download standard CSV templates, view required header fields, or copy our prompt to transform messy merchant sheets with AI.
+                    </p>
                   </div>
                 </Card>
 
-                {/* Course Modules Grid */}
-                <div className="grid gap-6 md:grid-cols-3">
-                  {/* Sidebar list */}
-                  <div className="space-y-2 md:col-span-1">
-                    <span className="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 block mb-2">
-                      Training Modules
-                    </span>
-                    {INITIAL_COURSE_MODULES.map((mod) => (
-                      <div
-                        key={mod.id}
-                        onClick={() => setSelectedAcademyCourse(mod)}
-                        className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-1.5 ${
-                          selectedAcademyCourse.id === mod.id
-                            ? "bg-[#2B5BFF]/20 border-[#2B5BFF] text-white"
-                            : "bg-[#141528] border-white/10 hover:bg-white/5 text-slate-400"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <Badge variant="outline" className="text-[9px] uppercase border-white/20 text-slate-300">
-                            {mod.category}
-                          </Badge>
-                          <span className="text-[10px] font-mono text-slate-400">{mod.duration}</span>
-                        </div>
-                        <h3 className="text-xs font-bold text-white line-clamp-2">{mod.title}</h3>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Active Course Detail & Tour Guide */}
-                  <div className="space-y-4 md:col-span-2">
-                    <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 space-y-4">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                        <div>
-                          <Badge className="bg-rose-500/20 text-rose-400 border-none text-[10px] uppercase font-bold mb-1">
-                            <Video className="h-3 w-3 mr-1" /> Training Video
-                          </Badge>
-                          <h3 className="text-base font-bold text-white">{selectedAcademyCourse.title}</h3>
-                        </div>
-                        <span className="text-xs font-mono text-slate-400 bg-white/5 px-2 py-1 rounded">
-                          {selectedAcademyCourse.duration}
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        {selectedAcademyCourse.description}
-                      </p>
-
-                      <div className="aspect-video bg-black/80 rounded-xl flex flex-col items-center justify-center p-6 text-center space-y-3 border border-white/10">
-                        <Video className="h-10 w-10 text-rose-500 animate-pulse" />
-                        <div className="space-y-0.5">
-                          <p className="text-xs font-bold text-white">Video Lesson Link</p>
-                          <p className="text-[11px] text-slate-400 font-mono max-w-sm truncate">
-                            {selectedAcademyCourse.videoUrl}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-2"
-                          onClick={() => setAgentVideoUrl(selectedAcademyCourse.videoUrl)}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" /> Watch Video Tutorial
-                        </Button>
-                      </div>
-
-                      {selectedAcademyCourse.pitchScript && (
-                        <div className="p-3.5 bg-[#2B5BFF]/10 rounded-xl border border-[#2B5BFF]/20 space-y-1">
-                          <span className="text-[10px] uppercase font-bold text-[#7B9FFF] block">
-                            Recommended Pitch Script:
-                          </span>
-                          <p className="italic text-xs text-slate-200">
-                            "{selectedAcademyCourse.pitchScript}"
-                          </p>
-                        </div>
-                      )}
-                    </Card>
-
-                    {/* Protected Tour Guide Component */}
-                    <ProtectedTourGuideViewer
-                      module={selectedAcademyCourse}
-                      agentName={agentProfile.fullName}
-                      onOpenVideo={(url) => setAgentVideoUrl(url)}
-                    />
-                  </div>
+                <div className="p-6 bg-[#141528] border border-white/10 rounded-2xl text-slate-100">
+                  <CSVImportGuideContent />
                 </div>
-
-                {/* Video Modal Player */}
-                {agentVideoUrl && (
-                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-[#141528] border border-white/20 rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative text-white">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                        <div className="flex items-center gap-2">
-                          <Video className="h-5 w-5 text-rose-500" />
-                          <h3 className="font-bold text-sm text-white">Stackwise Agent Video Tutorial</h3>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-slate-400 hover:text-white"
-                          onClick={() => setAgentVideoUrl(null)}
-                        >
-                          ✕
-                        </Button>
-                      </div>
-
-                      <div className="aspect-video bg-black rounded-xl flex flex-col items-center justify-center p-6 text-center space-y-3 border border-white/10">
-                        <Video className="h-12 w-12 text-rose-500 animate-pulse" />
-                        <div className="space-y-1">
-                          <p className="text-sm font-bold text-white">Module Video Lesson</p>
-                          <p className="text-xs text-slate-400 font-mono truncate max-w-sm">{agentVideoUrl}</p>
-                        </div>
-                        <Button
-                          size="sm"
-                          className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs gap-2"
-                          onClick={() => window.open(agentVideoUrl, "_blank", "noopener,noreferrer")}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" /> Open in Full Player
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 12-Hour Device Demo Generator Pass Modal */}
-                {showAgentDemoModal && (
-                  <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <DemoPassGeneratorModal
-                      defaultAgentName={agentProfile.fullName}
-                      onClose={() => setShowAgentDemoModal(false)}
-                    />
-                  </div>
-                )}
               </div>
             )}
 
@@ -2108,67 +2157,70 @@ export function AgentsPage() {
               </Card>
             )}
           </div>
-
-        </div>
-      ) : null}
+        </main>
+      </div>
+    </div>
+  ) : null}
 
       {/* FOOTER */}
-      <footer>
-        <div className="f-shimmer" />
-        <div className="f-top max-w-6xl mx-auto px-6 py-12 border-t border-white/10">
-          <div className="f-grid grid md:grid-cols-4 gap-8 text-xs text-slate-400">
-            <div>
-              <div className="f-brand-row flex items-center gap-2 text-white font-bold text-sm mb-3">
-                <div className="f-brand-ico bg-[#2B5BFF] p-1.5 rounded-lg">
-                  <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
-                    <path d="M4 4L10 4L14 12L10 20H4L8 12L4 4Z" fill="white"/>
-                  </svg>
+      {!currentUser && (
+        <footer>
+          <div className="f-shimmer" />
+          <div className="f-top max-w-6xl mx-auto px-6 py-12 border-t border-white/10">
+            <div className="f-grid grid md:grid-cols-4 gap-8 text-xs text-slate-400">
+              <div>
+                <div className="f-brand-row flex items-center gap-2 text-white font-bold text-sm mb-3">
+                  <div className="f-brand-ico bg-[#2B5BFF] p-1.5 rounded-lg">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
+                      <path d="M4 4L10 4L14 12L10 20H4L8 12L4 4Z" fill="white"/>
+                    </svg>
+                  </div>
+                  NexaStoreOS Agent
                 </div>
-                NexaStoreOS Agent
+                <p className="mb-4 leading-relaxed">
+                  Official NexaStoreOS Growth Partner Agent Portal. Operated by Nexa Digital Solutions LTD, Jalingo, Taraba State, Nigeria.
+                </p>
+                <div className="space-y-1 text-slate-300">
+                  <div>📞 090-380-26109</div>
+                  <div>💬 081-323-21056 (WhatsApp)</div>
+                  <div>📍 Lamurde St, Barade, Jalingo, Taraba</div>
+                </div>
               </div>
-              <p className="mb-4 leading-relaxed">
-                Official NexaStoreOS Growth Partner Agent Portal. Operated by Nexa Digital Solutions LTD, Jalingo, Taraba State, Nigeria.
-              </p>
-              <div className="space-y-1 text-slate-300">
-                <div>📞 090-380-26109</div>
-                <div>💬 081-323-21056 (WhatsApp)</div>
-                <div>📍 Lamurde St, Barade, Jalingo, Taraba</div>
+
+              <div>
+                <div className="f-col-head font-bold text-white uppercase mb-3">Agent Navigation</div>
+                <ul className="space-y-2">
+                  <li><button onClick={() => scrollToSection("#income")} className="hover:text-white">Income Calculator</button></li>
+                  <li><button onClick={() => scrollToSection("#commissions")} className="hover:text-white">Commission Rates</button></li>
+                  <li><button onClick={() => scrollToSection("#how-it-works")} className="hover:text-white">How It Works</button></li>
+                  <li><button onClick={() => scrollToSection("#terms")} className="hover:text-white">Terms &amp; Conditions</button></li>
+                  <li><button onClick={() => scrollToSection("#apply")} className="hover:text-white">Apply Now</button></li>
+                </ul>
               </div>
-            </div>
 
-            <div>
-              <div className="f-col-head font-bold text-white uppercase mb-3">Agent Navigation</div>
-              <ul className="space-y-2">
-                <li><button onClick={() => scrollToSection("#income")} className="hover:text-white">Income Calculator</button></li>
-                <li><button onClick={() => scrollToSection("#commissions")} className="hover:text-white">Commission Rates</button></li>
-                <li><button onClick={() => scrollToSection("#how-it-works")} className="hover:text-white">How It Works</button></li>
-                <li><button onClick={() => scrollToSection("#terms")} className="hover:text-white">Terms &amp; Conditions</button></li>
-                <li><button onClick={() => scrollToSection("#apply")} className="hover:text-white">Apply Now</button></li>
-              </ul>
-            </div>
+              <div>
+                <div className="f-col-head font-bold text-white uppercase mb-3">Nexa Digital Solutions</div>
+                <p className="leading-relaxed">
+                  Empowering Nigerian retail merchants with Next-Gen Point of Sale, Inventory Management, and Cloud Analytics.
+                </p>
+              </div>
 
-            <div>
-              <div className="f-col-head font-bold text-white uppercase mb-3">Nexa Digital Solutions</div>
-              <p className="leading-relaxed">
-                Empowering Nigerian retail merchants with Next-Gen Point of Sale, Inventory Management, and Cloud Analytics.
-              </p>
-            </div>
-
-            <div>
-              <div className="f-col-head font-bold text-white uppercase mb-3">Support</div>
-              <ul className="space-y-2">
-                <li><button onClick={() => scrollToSection("#faq")} className="hover:text-white">FAQ</button></li>
-                <li><a href="tel:09038026109" className="hover:text-white">Call State Lead</a></li>
-                <li><a href="https://wa.me/2348132321056" target="_blank" rel="noreferrer" className="hover:text-white">WhatsApp Support</a></li>
-              </ul>
+              <div>
+                <div className="f-col-head font-bold text-white uppercase mb-3">Support</div>
+                <ul className="space-y-2">
+                  <li><button onClick={() => scrollToSection("#faq")} className="hover:text-white">FAQ</button></li>
+                  <li><a href="tel:09038026109" className="hover:text-white">Call State Lead</a></li>
+                  <li><a href="https://wa.me/2348132321056" target="_blank" rel="noreferrer" className="hover:text-white">WhatsApp Support</a></li>
+                </ul>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="f-bottom border-t border-white/5 py-6 px-6 text-center text-xs text-slate-500">
-          © 2025 Nexa Digital Solutions LTD · NexaStoreOS Growth Partner Program · All Rights Reserved · Nigeria
-        </div>
-      </footer>
+          <div className="f-bottom border-t border-white/5 py-6 px-6 text-center text-xs text-slate-500">
+            © 2025 Nexa Digital Solutions LTD · NexaStoreOS Growth Partner Program · All Rights Reserved · Nigeria
+          </div>
+        </footer>
+      )}
 
       {/* AUTH MODAL (SIGN IN / SIGN UP) */}
       <AnimatePresence>
@@ -2225,6 +2277,7 @@ export function AgentsPage() {
                     <Input 
                       id="loginEmail"
                       type="email"
+                      autoComplete="username"
                       placeholder="e.g. partner@nexaagent.ng"
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
@@ -2233,11 +2286,21 @@ export function AgentsPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="loginPass" className="text-slate-400">Security Password</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="loginPass" className="text-slate-400">Security Password</Label>
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        className="text-[11px] text-[#00C4CF] hover:underline"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
                     <div className="relative">
                       <Input 
                         id="loginPass"
                         type={showPassword ? "text" : "password"}
+                        autoComplete="current-password"
                         placeholder="••••••••"
                         value={passwordInput}
                         onChange={(e) => setPasswordInput(e.target.value)}

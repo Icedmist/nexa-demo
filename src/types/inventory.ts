@@ -287,6 +287,7 @@ export interface SaleItem {
   unit: string;
   multiplier: number;
   unitPriceNgn: number;
+  originalUnitPriceNgn?: number;
   imageUrl?: string;
   customFields?: {
     color?: string;

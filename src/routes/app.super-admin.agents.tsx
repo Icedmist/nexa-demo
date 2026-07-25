@@ -29,9 +29,11 @@ import {
   Edit2,
   Eye,
   Trash2,
-  Users
+  Users,
+  BookOpen
 } from "lucide-react";
 import { toast } from "sonner";
+import { ResourceManagementConsole } from "@/components/super-admin/ResourceManagementConsole";
 
 export const Route = createFileRoute("/app/super-admin/agents")({
   component: SuperAdminAgents,
@@ -105,6 +107,9 @@ function SuperAdminAgents() {
       runCount: 8
     }
   ]);
+
+  // Active Tab state (services vs resources management)
+  const [activeTab, setActiveTab] = useState<"services" | "resources">("services");
 
   // Model & Core configurations
   const [temperature, setTemperature] = useState<number>(0.7);
@@ -351,8 +356,36 @@ I have loaded:
 
   return (
     <div className="space-y-6">
-      {/* Upper Grid: Agent status deck and Configurations */}
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* Top Tab Bar Navigation */}
+      <div className="flex items-center gap-2 border-b border-muted-foreground/15 pb-2">
+        <button
+          onClick={() => setActiveTab("services")}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === "services"
+              ? "bg-primary text-primary-foreground shadow"
+              : "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+          }`}
+        >
+          <Bot className="h-4 w-4" /> Autonomous Workers &amp; AI Auditor
+        </button>
+        <button
+          onClick={() => setActiveTab("resources")}
+          className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
+            activeTab === "resources"
+              ? "bg-primary text-primary-foreground shadow"
+              : "bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+          }`}
+        >
+          <BookOpen className="h-4 w-4" /> 🎓 Field Marketing &amp; Resource Console
+        </button>
+      </div>
+
+      {activeTab === "resources" ? (
+        <ResourceManagementConsole />
+      ) : (
+        <>
+          {/* Upper Grid: Agent status deck and Configurations */}
+          <div className="grid gap-6 lg:grid-cols-3">
         {/* Active Agents list */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
@@ -640,6 +673,8 @@ I have loaded:
           </Button>
         </form>
       </Card>
+      </>
+      )}
 
       {/* View Agent Details Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>

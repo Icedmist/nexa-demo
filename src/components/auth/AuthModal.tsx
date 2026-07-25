@@ -279,6 +279,7 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
                 <Input
                   id="email"
                   type="email"
+                  autoComplete="email"
                   placeholder="name@company.com"
                   className="pl-10"
                   value={formData.email}
@@ -309,6 +310,7 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete={tab === "login" ? "current-password" : "new-password"}
                   placeholder="••••••••"
                   className="pl-10 pr-10"
                   value={formData.password}

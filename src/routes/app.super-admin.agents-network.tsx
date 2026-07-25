@@ -157,6 +157,8 @@ export function SuperAdminAgentsNetwork() {
         });
       }
       setReferrals(list);
+    }, (err) => {
+      console.warn("Referrals listener info:", err.message);
     });
 
     // 3. Listen to Earnings
@@ -187,6 +189,8 @@ export function SuperAdminAgentsNetwork() {
         });
       }
       setEarnings(list);
+    }, (err) => {
+      console.warn("Earnings listener info:", err.message);
     });
 
     // 4. Fetch default commission rule

@@ -409,7 +409,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (dbErr) {
-        console.error("Failed to check tempPassword in Firestore:", dbErr);
+        // Silent catch: Unauthenticated queries to 'users' collection fail with permission-denied
+        // as required by Firestore security rules. Ignore expected permission errors when not signed in.
       }
       throw authError;
     }

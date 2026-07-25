@@ -36,8 +36,12 @@ function buildReceiptText(sale: SaleTransaction, storeName: string): string {
   lines.push("");
   lines.push("─────────────────");
   sale.items.forEach((li) => {
+    const hasOverride = li.originalUnitPriceNgn && Math.abs(li.originalUnitPriceNgn - li.unitPriceNgn) > 0.01;
     lines.push(`${li.itemName}`);
     lines.push(`  ${li.quantity}${li.unit && li.unit !== "pcs" ? li.unit : ""} × ${fmtNgn(li.unitPriceNgn)} = ${fmtNgn(li.unitPriceNgn * li.quantity)}`);
+    if (hasOverride) {
+      lines.push(`  [Price Overridden · Original: ${fmtNgn(li.originalUnitPriceNgn!)}]`);
+    }
   });
   if (sale.previousDebtPaidNgn && sale.previousDebtPaidNgn > 0) {
     lines.push("─────────────────");
@@ -381,19 +385,27 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
 
           {/* Line items */}
           <div className="space-y-2">
-            {sale.items.map((li, idx) => (
-              <div key={idx} className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground truncate">{li.itemName}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {li.quantity}{li.unit && li.unit !== "pcs" && <span className="uppercase mx-0.5">{li.unit}</span>} × {fmtNgn(li.unitPriceNgn)}
-                  </p>
+            {sale.items.map((li, idx) => {
+              const hasOverride = li.originalUnitPriceNgn && Math.abs(li.originalUnitPriceNgn - li.unitPriceNgn) > 0.01;
+              return (
+                <div key={idx} className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-foreground truncate">{li.itemName}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {li.quantity}{li.unit && li.unit !== "pcs" && <span className="uppercase mx-0.5">{li.unit}</span>} × {fmtNgn(li.unitPriceNgn)}
+                    </p>
+                    {hasOverride && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                        (Price Overridden · Original: {fmtNgn(li.originalUnitPriceNgn!)})
+                      </p>
+                    )}
+                  </div>
+                  <span className="font-mono text-sm font-semibold text-foreground shrink-0">
+                    {fmtNgn(li.unitPriceNgn * li.quantity)}
+                  </span>
                 </div>
-                <span className="font-mono text-sm font-semibold text-foreground shrink-0">
-                  {fmtNgn(li.unitPriceNgn * li.quantity)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {sale.previousDebtPaidNgn && sale.previousDebtPaidNgn > 0 && (

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef, type DragEvent } from "react";
-import { Upload, FileSpreadsheet, AlertCircle, ChevronRight, ChevronLeft, CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, ChevronRight, ChevronLeft, CheckCircle2, XCircle, AlertTriangle, Loader2, Sparkles, HelpCircle, Download } from "lucide-react";
+import { CSVImportGuideModal, downloadSampleCSVTemplate } from "@/components/data/CSVImportGuideModal";
 import {
   Sheet,
   SheetContent,
@@ -234,6 +235,7 @@ export function CSVImportSheet({
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importResult, setImportResult] = useState<{ created: number; failed: number } | null>(null);
+  const [showGuideModal, setShowGuideModal] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const totalSteps = 4; // upload → mapping → validation → execute
@@ -415,6 +417,38 @@ export function CSVImportSheet({
                   {fileError}
                 </div>
               )}
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3.5 bg-gradient-to-br from-primary/10 via-primary/5 to-muted border border-primary/20 rounded-xl">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-foreground">
+                    <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                    <span>CSV Format Specs & AI Format Converter</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Have a messy Excel or WhatsApp inventory list? View expected columns or copy our AI prompt to convert your spreadsheet instantly.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadSampleCSVTemplate()}
+                    className="h-8 text-xs font-bold gap-1 bg-background"
+                  >
+                    <Download className="h-3.5 w-3.5 text-primary" /> Sample CSV
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setShowGuideModal(true)}
+                    className="h-8 text-xs font-bold gap-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5" /> Open Guide
+                  </Button>
+                </div>
+              </div>
             </>
           )}
 
@@ -666,6 +700,7 @@ export function CSVImportSheet({
           )}
         </div>
       </SheetContent>
+      <CSVImportGuideModal open={showGuideModal} onOpenChange={setShowGuideModal} />
     </Sheet>
   );
 }

@@ -1,13 +1,16 @@
 import { useState, useEffect } from "react";
-import { Palette, Upload, Save, QrCode, Download, Printer, Copy, Check, ExternalLink, Trash2 } from "lucide-react";
+import { Palette, Upload, Save, QrCode, Download, Printer, Copy, Check, ExternalLink, Trash2, Sparkles, Landmark } from "lucide-react";
 import { getPublicUrl, getStorefrontUrl, getCleanStoreSlug } from "@/lib/utils";
 import { NexaLogo } from "@/components/shared/NexaLogo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PaymentDialog } from "@/components/settings/PaymentDialog";
 import { useDemo } from "@/hooks/useDemo";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -23,6 +26,7 @@ const BRAND_COLORS = [
 export function StoreBranding() {
   const { isDemo, onboarding: demoOnboarding, updateOnboarding } = useDemo();
   const { settings: liveSettings, updateSettings } = useSystemSettings();
+  const { flags } = useFeatureFlags();
 
   const activeSettings = isDemo ? demoOnboarding : liveSettings;
 
@@ -30,6 +34,7 @@ export function StoreBranding() {
   const [logoUrl, setLogoUrl] = useState(activeSettings.logoUrl ?? "");
   const [copied, setCopied] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
   useEffect(() => {
     setSelectedColor(activeSettings.brandColor ?? "#0d9488");
@@ -495,114 +500,150 @@ export function StoreBranding() {
 
       <Card className="border border-border">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <QrCode className="h-4 w-4 text-primary" /> Shop QR Code Flyer
+          <CardTitle className="flex items-center justify-between text-base">
+            <span className="flex items-center gap-2">
+              <QrCode className="h-4 w-4 text-primary" /> Shop QR Code Flyer
+            </span>
+            {flags.planId === "starter" ? (
+              <Badge className="bg-amber-500 text-amber-950 text-[10px] font-extrabold uppercase">Pro & Enterprise Only</Badge>
+            ) : (
+              <Badge variant="outline" className="text-emerald-600 border-emerald-500/30 bg-emerald-500/5 text-[10px] font-bold">
+                Pro / Enterprise Unlocked
+              </Badge>
+            )}
           </CardTitle>
           <CardDescription>
             Download or print a premium, branded QR code sticker. Customers scan this code to browse your online catalog, view stock status, and self-checkout securely.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {isDevUrl && (
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-700 space-y-1">
-              <p className="font-bold flex items-center gap-1.5 text-amber-800">
-                <span className="text-sm">💡</span> Sandbox Testing Tip
-              </p>
-              <p className="leading-relaxed">
-                You are currently in the development environment. To scan this QR code on your mobile phone, use the <strong>Public Shared App URL</strong>.
-              </p>
-              <p className="leading-relaxed mt-1 font-medium text-amber-800">
-                We've automatically optimized the QR code below to target your public unauthenticated URL for seamless mobile scanning!
-              </p>
-            </div>
-          )}
-
-          {/* Interactive Live Flyer Preview */}
-          <div className="flex justify-center">
-            <div className="relative w-full max-w-[280px] bg-white border-2 border-slate-100 rounded-2xl shadow-xl p-6 text-center overflow-hidden transition-all duration-300 hover:shadow-2xl">
-              {/* Dynamic top brand bar */}
-              <div 
-                className="absolute top-0 left-0 right-0 h-2.5 transition-colors duration-300" 
-                style={{ backgroundColor: selectedColor }}
-              />
-              
-              <div className="text-[14px] font-extrabold text-slate-800 tracking-tight mt-1">SCAN & CHOOSE PRODUCTS</div>
-              <div className="text-[11px] font-medium text-slate-400 truncate mb-4">{activeSettings.storeName || "Our Store"}</div>
-              
-              {/* Center QR container */}
-              <div id="shop-qr-svg-container" className="inline-block p-4 bg-slate-50 border border-slate-100 rounded-xl mb-4 transition-all duration-300">
-                <QRCodeSVG
-                  id="shop-qr-svg-element"
-                  value={shopUrl}
-                  size={140}
-                  level="H"
-                  fgColor={selectedColor}
-                  bgColor="#ffffff"
-                  includeMargin={false}
-                />
+          {flags.planId === "starter" ? (
+            <div className="bg-gradient-to-br from-amber-500/5 via-primary/5 to-muted border border-amber-500/20 rounded-xl p-6 text-center space-y-3">
+              <div className="p-3 bg-amber-500/10 rounded-full w-12 h-12 flex items-center justify-center mx-auto text-amber-600 dark:text-amber-400">
+                <QrCode className="h-6 w-6" />
               </div>
-
-              <div className="text-[12px] font-extrabold text-slate-800 tracking-wide">ONLINE CATALOG & CHECKOUT</div>
-              <div 
-                className="text-[8px] font-bold tracking-wider mt-1 transition-colors duration-300"
-                style={{ color: selectedColor }}
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-foreground">Infront Shop QR Flyer Gated for Starter Plan</h4>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  Dynamic In-Store / Storefront QR flyers with high-converting mobile catalog checkout links are reserved for Professional and Enterprise subscribers.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setShowPaymentDialog(true)}
+                className="gap-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-amber-950"
               >
-                ⚡ ORDER & PAY SECURELY FROM YOUR DEVICE
+                <Sparkles className="h-3.5 w-3.5" /> Upgrade to Pro or Enterprise
+              </Button>
+            </div>
+          ) : (
+            <>
+              {isDevUrl && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-amber-700 space-y-1">
+                  <p className="font-bold flex items-center gap-1.5 text-amber-800">
+                    <span className="text-sm">💡</span> Sandbox Testing Tip
+                  </p>
+                  <p className="leading-relaxed">
+                    You are currently in the development environment. To scan this QR code on your mobile phone, use the <strong>Public Shared App URL</strong>.
+                  </p>
+                  <p className="leading-relaxed mt-1 font-medium text-amber-800">
+                    We've automatically optimized the QR code below to target your public unauthenticated URL for seamless mobile scanning!
+                  </p>
+                </div>
+              )}
+
+              {/* Interactive Live Flyer Preview */}
+              <div className="flex justify-center">
+                <div className="relative w-full max-w-[280px] bg-white border-2 border-slate-100 rounded-2xl shadow-xl p-6 text-center overflow-hidden transition-all duration-300 hover:shadow-2xl">
+                  {/* Dynamic top brand bar */}
+                  <div 
+                    className="absolute top-0 left-0 right-0 h-2.5 transition-colors duration-300" 
+                    style={{ backgroundColor: selectedColor }}
+                  />
+                  
+                  <div className="text-[14px] font-extrabold text-slate-800 tracking-tight mt-1">SCAN & CHOOSE PRODUCTS</div>
+                  <div className="text-[11px] font-medium text-slate-400 truncate mb-4">{activeSettings.storeName || "Our Store"}</div>
+                  
+                  {/* Center QR container */}
+                  <div id="shop-qr-svg-container" className="inline-block p-4 bg-slate-50 border border-slate-100 rounded-xl mb-4 transition-all duration-300">
+                    <QRCodeSVG
+                      id="shop-qr-svg-element"
+                      value={shopUrl}
+                      size={140}
+                      level="H"
+                      fgColor={selectedColor}
+                      bgColor="#ffffff"
+                      includeMargin={false}
+                    />
+                  </div>
+
+                  <div className="text-[12px] font-extrabold text-slate-800 tracking-wide">ONLINE CATALOG & CHECKOUT</div>
+                  <div 
+                    className="text-[8px] font-bold tracking-wider mt-1 transition-colors duration-300"
+                    style={{ color: selectedColor }}
+                  >
+                    ⚡ ORDER & PAY SECURELY FROM YOUR DEVICE
+                  </div>
+
+                  <div className="border-t border-slate-100 my-4" />
+
+                  {/* Powered by Nexa Footer */}
+                  <div className="flex flex-col items-center justify-center gap-1">
+                    <div className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest">Powered by</div>
+                    <a 
+                      href={`${import.meta.env.VITE_LANDING_URL || "https://nexastoreos.com"}/?utm_source=qr_flyer_preview&utm_medium=merchant_settings&utm_campaign=${encodeURIComponent(storeSlug)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:opacity-80 transition-opacity"
+                    >
+                      <NexaLogo variant="full" height={16} className="text-foreground shrink-0" />
+                    </a>
+                    <a 
+                      href={`${import.meta.env.VITE_LANDING_URL || "https://nexastoreos.com"}/?utm_source=qr_flyer_preview_cta&utm_medium=merchant_settings&utm_campaign=${encodeURIComponent(storeSlug)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[9px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-md mt-1 hover:brightness-110 transition-all animate-pulse"
+                    >
+                      Click to create your store 🚀
+                    </a>
+                  </div>
+                </div>
               </div>
 
-              <div className="border-t border-slate-100 my-4" />
-
-              {/* Powered by Nexa Footer */}
-              <div className="flex flex-col items-center justify-center gap-1">
-                <div className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest">Powered by</div>
-                <a 
-                  href={`${import.meta.env.VITE_LANDING_URL || "https://nexastoreos.com"}/?utm_source=qr_flyer_preview&utm_medium=merchant_settings&utm_campaign=${encodeURIComponent(storeSlug)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:opacity-80 transition-opacity"
-                >
-                  <NexaLogo variant="full" height={16} className="text-foreground shrink-0" />
-                </a>
-                <a 
-                  href={`${import.meta.env.VITE_LANDING_URL || "https://nexastoreos.com"}/?utm_source=qr_flyer_preview_cta&utm_medium=merchant_settings&utm_campaign=${encodeURIComponent(storeSlug)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[9px] font-bold text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-md mt-1 hover:brightness-110 transition-all animate-pulse"
-                >
-                  Click to create your store 🚀
-                </a>
+              <div className="space-y-2.5">
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1 h-10 gap-1.5" onClick={downloadShopQR}>
+                    <Download className="h-4 w-4" /> Download
+                  </Button>
+                  <Button size="sm" className="flex-1 h-10 gap-1.5" onClick={printShopQR}>
+                    <Printer className="h-4 w-4" /> Print
+                  </Button>
+                </div>
+                
+                <div className="flex items-center gap-2 p-2.5 bg-muted/30 border border-border/80 rounded-lg">
+                  <Input 
+                    readOnly 
+                    value={shopUrl} 
+                    className="h-8 text-xs bg-transparent border-none shadow-none focus-visible:ring-0 px-0 text-muted-foreground select-all" 
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={copyUrl}>
+                    {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" asChild>
+                    <a href={shopUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-
-          <div className="space-y-2.5">
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="flex-1 h-10 gap-1.5" onClick={downloadShopQR}>
-                <Download className="h-4 w-4" /> Download
-              </Button>
-              <Button size="sm" className="flex-1 h-10 gap-1.5" onClick={printShopQR}>
-                <Printer className="h-4 w-4" /> Print
-              </Button>
-            </div>
-            
-            <div className="flex items-center gap-2 p-2.5 bg-muted/30 border border-border/80 rounded-lg">
-              <Input 
-                readOnly 
-                value={shopUrl} 
-                className="h-8 text-xs bg-transparent border-none shadow-none focus-visible:ring-0 px-0 text-muted-foreground select-all" 
-              />
-              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" onClick={copyUrl}>
-                {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-              </Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" asChild>
-                <a href={shopUrl} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </Button>
-            </div>
-          </div>
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {showPaymentDialog && (
+        <PaymentDialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog} />
+      )}
     </div>
   );
 }

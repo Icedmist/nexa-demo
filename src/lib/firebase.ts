@@ -15,7 +15,7 @@ import firebaseConfig from '../../firebase-applet-config.json';
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 // Mute verbose Firestore logs and warnings because we handle offline mode gracefully
-setLogLevel('error');
+setLogLevel('silent');
 
 // Initialize Firestore as a singleton and store it on the global window object in browser environments to prevent duplicate initialization during HMR/reloads
 let dbInstance;
@@ -85,7 +85,14 @@ function updateConnectivity(offline: boolean) {
 }
 
 // Global error handler for connection test
-async function testConnection() {
+async function testConnection(force = false) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    updateConnectivity(true);
+    return;
+  }
+  if (isFirebaseOffline && !force) {
+    return;
+  }
   try {
     // Try to get a document directly from the server. 
     // This will fail fast if the config or network is broken.
@@ -100,9 +107,13 @@ async function testConnection() {
         msg.includes('network-request-failed') || 
         msg.includes('unavailable') || 
         msg.includes('could not reach') ||
-        error.name === 'FirebaseError' && msg.includes('failed')
+        msg.includes('not_found') ||
+        msg.includes('not-found') ||
+        msg.includes('code: 5') ||
+        msg.includes('listen') ||
+        (error.name === 'FirebaseError' && msg.includes('failed'))
       ) {
-        console.warn("Nexa OS Info: Cloud Firestore database is unreachable in this layout/iframe. We are automatically and seamlessly running in local-first demo fallback mode for standard browser environment safety.");
+        console.warn("Nexa OS Info: Cloud Firestore database is unreachable or unprovisioned in this environment. Seamlessly operating in local-first demo fallback mode.");
         updateConnectivity(true);
       } else if (msg.includes('permission-denied') || msg.includes('insufficient permissions')) {
         console.log("Firebase connection verified (permission boundaries intact).");
@@ -117,10 +128,15 @@ async function testConnection() {
 
 // Run connection test in browser after a short delay to allow Auth state to initialize first
 if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    testConnection(true);
+  });
+  window.addEventListener('offline', () => {
+    updateConnectivity(true);
+  });
+
   setTimeout(() => {
-    testConnection();
-    // Use a gentler interval of 60 seconds to reduce network and console noise
-    setInterval(testConnection, 60000);
+    testConnection(true);
   }, 2500);
 }
 
@@ -152,11 +168,16 @@ export interface FirestoreErrorInfo {
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errMsg = error instanceof Error ? error.message : String(error);
-  const isNetwork = errMsg.toLowerCase().includes('unavailable') || 
-                    errMsg.toLowerCase().includes('could not reach') || 
-                    errMsg.toLowerCase().includes('offline') || 
-                    errMsg.toLowerCase().includes('network-request-failed') ||
-                    errMsg.toLowerCase().includes('failed to get document');
+  const lowerMsg = errMsg.toLowerCase();
+  const isNetwork = lowerMsg.includes('unavailable') || 
+                    lowerMsg.includes('could not reach') || 
+                    lowerMsg.includes('offline') || 
+                    lowerMsg.includes('network-request-failed') ||
+                    lowerMsg.includes('failed to get document') ||
+                    lowerMsg.includes('not_found') ||
+                    lowerMsg.includes('not-found') ||
+                    lowerMsg.includes('code: 5') ||
+                    lowerMsg.includes('listen');
   
   if (isNetwork) {
     updateConnectivity(true);
