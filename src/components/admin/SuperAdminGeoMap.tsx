@@ -55,8 +55,36 @@ export function SuperAdminGeoMap() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isWatchingGps, setIsWatchingGps] = useState(false);
 
-  // Firestore Real-time telemetry listener
+  // Firestore Real-time stores & telemetry listener
   useEffect(() => {
+    const unsubStores = onSnapshot(
+      collection(db, "stores"),
+      (snap) => {
+        if (!snap.empty) {
+          const list: StoreGeoNode[] = [];
+          snap.forEach((d) => {
+            const data = d.data();
+            list.push({
+              id: d.id,
+              name: data.storeName || data.name || "Unnamed Store",
+              sector: (data.businessType || "general") as StoreGeoNode["sector"],
+              manager: data.ownerName || data.manager || "Store Manager",
+              state: data.state || "Lagos",
+              country: data.country || "Nigeria",
+              lat: data.latitude || (data.state?.toLowerCase().includes("abuja") ? 9.0765 : 6.5244),
+              lng: data.longitude || (data.state?.toLowerCase().includes("abuja") ? 7.3986 : 3.3792),
+              activeDevices: data.activeDevices || 1,
+              valuationNgn: data.valuationNgn || 0,
+              status: (data.status || "active") as StoreGeoNode["status"],
+              lastSyncAt: data.updatedAt || new Date().toISOString(),
+            });
+          });
+          setStores(list);
+        }
+      },
+      (err) => console.warn("Could not load real-time stores for map:", err)
+    );
+
     const unsubDevices = onSnapshot(
       collection(db, "device_telemetry"),
       (snap) => {
@@ -76,7 +104,10 @@ export function SuperAdminGeoMap() {
       (err) => console.warn("Could not load real-time device telemetry:", err)
     );
 
-    return () => unsubDevices();
+    return () => {
+      unsubStores();
+      unsubDevices();
+    };
   }, []);
 
   // Auto-capture client device telemetry on initial render

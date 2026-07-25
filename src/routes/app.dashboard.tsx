@@ -197,6 +197,8 @@ export function DashboardPage() {
     const triggerScanner = sessionStorage.getItem("nexa_open_scanner_after_onboarding") === "true";
     const triggerImport = sessionStorage.getItem("nexa_open_import_after_onboarding") === "true";
     if (triggerScanner || triggerImport) {
+      sessionStorage.removeItem("nexa_open_scanner_after_onboarding");
+      sessionStorage.removeItem("nexa_open_import_after_onboarding");
       navigate({ to: "/app/catalog", replace: true });
       return;
     }

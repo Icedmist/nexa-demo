@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { BusinessOnboarding } from "@/components/onboarding/BusinessOnboarding";
 import { MemberOnboarding } from "@/components/onboarding/MemberOnboarding";
 import { type PendingProduct } from "@/components/onboarding/BulkProductEntry";
+import { useOnboardingNavigation, type OnboardingEntryMethod } from "@/hooks/useOnboardingNavigation";
 import { db, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { doc, updateDoc, writeBatch, collection, onSnapshot } from "firebase/firestore";
 import { ShieldAlert, Lock, Clock, ExternalLink } from "lucide-react";
@@ -39,6 +40,7 @@ function AppLayout() {
   const { role, isOwner, isAdmin, isSuperAdmin, permissions } = useRole();
   const navigate = useNavigate();
   const location = useLocation();
+  const { handleOptionRoute } = useOnboardingNavigation();
   const [helpOpen, setHelpOpen] = useState(false);
   const [forceOnboarding, setForceOnboarding] = useState(false);
   const [memberOnboarding, setMemberOnboarding] = useState(false);
@@ -198,6 +200,7 @@ function AppLayout() {
     state?: string;
     lga?: string;
     selectedPlan?: "starter" | "professional" | "enterprise";
+    entryMethod?: OnboardingEntryMethod;
   }) => {
     try {
       await setupStore({
@@ -232,14 +235,19 @@ function AppLayout() {
             ];
           }
 
+          const sellP = (item.price && !isNaN(Number(item.price))) ? Number(item.price) : 0;
+          const costP = (item.costPrice && !isNaN(Number(item.costPrice))) ? Number(item.costPrice) : Math.round(sellP * 0.7);
+          const stockV = (item.stock && !isNaN(Number(item.stock))) ? Number(item.stock) : 0;
+
           batch.set(itemRef, {
             id: itemRef.id,
             storeId: profile.storeId,
             name: item.name,
             // Generate a simple SKU if one isn't provided
             sku: `PROD-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
-            currentStock: Number(item.stock) || 0,
-            sellingPrice: Number(item.price) || 0,
+            currentStock: stockV,
+            sellingPrice: sellP,
+            costPrice: costP,
             unit: item.unit || "pcs",
             status: "active",
             reorderPoint: 5,
@@ -268,7 +276,7 @@ function AppLayout() {
       sessionStorage.setItem("stackwise-just-onboarded", "true");
       setForceOnboarding(false);
       setMemberOnboarding(false);
-      toast.success("Store setup complete! Your items have been added.");
+      handleOptionRoute(data.entryMethod);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, "onboarding completion");
       toast.error("Failed to save store settings.");
@@ -337,6 +345,7 @@ function AppLayout() {
       await handleMemberOnboardingComplete();
       setForceOnboarding(false);
       setMemberOnboarding(false);
+      handleOptionRoute("skip");
     } catch (err) {
       console.error("Failed to skip onboarding", err);
       toast.error("Failed to update onboarding status.");

@@ -16,6 +16,7 @@ export interface OnboardingSelection {
   initialItems?: Array<{ 
     name: string; 
     price: string; 
+    costPrice?: string;
     stock: string; 
     unit: string; 
     categoryId?: string;
@@ -70,6 +71,15 @@ export function DemoProvider({ children }: { children: ReactNode }) {
           ];
         }
 
+        const rawSell = parseFloat(pi.price);
+        const sellPrice = !isNaN(rawSell) && rawSell >= 0 ? rawSell : 0;
+
+        const rawCost = pi.costPrice ? parseFloat(pi.costPrice) : NaN;
+        const costPrice = !isNaN(rawCost) && rawCost >= 0 ? rawCost : Math.round(sellPrice * 0.7);
+
+        const rawStock = parseFloat(pi.stock);
+        const stockVal = !isNaN(rawStock) && rawStock >= 0 ? rawStock : 0;
+
         s.createItem({
           id: `new-${idx}-${Date.now()}`,
           sku: `SKU-${100 + idx}`,
@@ -79,11 +89,11 @@ export function DemoProvider({ children }: { children: ReactNode }) {
           status: ItemStatus.Active,
           unit: pi.unit,
           unitType: unitType,
-          currentStock: parseFloat(pi.stock) || 0,
+          currentStock: stockVal,
           reorderPoint: 5,
           reorderQuantity: 10,
-          costPrice: parseFloat(pi.price) * 0.7, // Assume 30% margin for demo
-          sellingPrice: parseFloat(pi.price) || 0,
+          costPrice: costPrice,
+          sellingPrice: sellPrice,
           unitConversions: conversions,
           color: pi.color || "",
           sizes: pi.sizes || "",

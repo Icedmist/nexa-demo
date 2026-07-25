@@ -6,7 +6,10 @@ import {
   ShieldCheck, 
   HelpCircle, 
   FileSpreadsheet,
-  Plus
+  Plus,
+  Wallet,
+  QrCode,
+  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +26,9 @@ interface AgentHeaderProps {
   onOpenMobileMenu: () => void;
   onOpenDemoPassModal: () => void;
   onOpenAuthModal: () => void;
+  onOpenOnboardModal?: () => void;
+  onOpenPayoutModal?: () => void;
+  onOpenQrModal?: () => void;
   isAuthenticated: boolean;
   agentName?: string;
   agentEmail?: string;
@@ -34,6 +40,9 @@ export function AgentHeader({
   onOpenMobileMenu,
   onOpenDemoPassModal,
   onOpenAuthModal,
+  onOpenOnboardModal,
+  onOpenPayoutModal,
+  onOpenQrModal,
   isAuthenticated,
   agentName = "Growth Partner",
   agentEmail = "agent@nexastore.ng",
@@ -65,15 +74,52 @@ export function AgentHeader({
       </div>
 
       {/* RIGHT ACTIONS */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
+        {isAuthenticated && onOpenOnboardModal && (
+          <Button
+            onClick={onOpenOnboardModal}
+            size="sm"
+            className="bg-gradient-to-r from-[#2B5BFF] to-[#00C4CF] hover:brightness-110 text-white font-bold text-xs h-9 gap-1.5 rounded-xl shadow-md shadow-[#2B5BFF]/20"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden lg:inline">Onboard Store</span>
+            <span className="lg:hidden">Onboard</span>
+          </Button>
+        )}
+
+        {isAuthenticated && onOpenPayoutModal && (
+          <Button
+            onClick={onOpenPayoutModal}
+            size="sm"
+            variant="outline"
+            className="border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-[#4DE89A] font-bold text-xs h-9 gap-1.5 rounded-xl"
+          >
+            <Wallet className="h-4 w-4" />
+            <span className="hidden xl:inline">Claim Payout</span>
+          </Button>
+        )}
+
+        {isAuthenticated && onOpenQrModal && (
+          <Button
+            onClick={onOpenQrModal}
+            size="sm"
+            variant="ghost"
+            className="text-slate-300 hover:text-white hover:bg-white/10 text-xs h-9 gap-1.5 rounded-xl hidden md:flex"
+            title="Digital QR Flyer"
+          >
+            <QrCode className="h-4 w-4 text-[#00C4CF]" />
+            <span className="hidden xl:inline">QR Flyer</span>
+          </Button>
+        )}
+
         <Button
           onClick={onOpenDemoPassModal}
           size="sm"
-          className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs h-9 gap-2 rounded-xl"
+          className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs h-9 gap-1.5 rounded-xl"
         >
-          <Lock className="h-4 w-4 text-amber-950 shrink-0" />
-          <span className="hidden sm:inline">Generate 12h Demo Link</span>
-          <span className="sm:hidden">Demo Link</span>
+          <Lock className="h-4 w-4 shrink-0" />
+          <span className="hidden md:inline">12h Demo Link</span>
+          <span className="md:hidden">Demo</span>
         </Button>
 
         {isAuthenticated ? (
@@ -94,6 +140,31 @@ export function AgentHeader({
                 <span className="font-bold block">{agentName}</span>
                 <span className="text-[10px] font-mono text-slate-400 font-normal">{agentEmail}</span>
               </DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-white/10" />
+              {onOpenOnboardModal && (
+                <DropdownMenuItem 
+                  onClick={onOpenOnboardModal}
+                  className="text-xs focus:bg-white/10 cursor-pointer rounded-xl gap-2 font-medium"
+                >
+                  <Plus className="h-4 w-4 text-[#00C4CF]" /> Onboard Retail Merchant
+                </DropdownMenuItem>
+              )}
+              {onOpenPayoutModal && (
+                <DropdownMenuItem 
+                  onClick={onOpenPayoutModal}
+                  className="text-xs focus:bg-white/10 cursor-pointer rounded-xl gap-2 font-medium"
+                >
+                  <Wallet className="h-4 w-4 text-[#4DE89A]" /> Request Payout / Claim
+                </DropdownMenuItem>
+              )}
+              {onOpenQrModal && (
+                <DropdownMenuItem 
+                  onClick={onOpenQrModal}
+                  className="text-xs focus:bg-white/10 cursor-pointer rounded-xl gap-2 font-medium"
+                >
+                  <QrCode className="h-4 w-4 text-amber-400" /> Digital Agent QR Flyer
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator className="bg-white/10" />
               <DropdownMenuItem 
                 onClick={onLogout}

@@ -60,7 +60,15 @@ import {
   BookOpen,
   ExternalLink,
   Share2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Plus,
+  Wallet,
+  QrCode,
+  Search,
+  Filter,
+  Download,
+  Send,
+  MessageSquare
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -79,6 +87,11 @@ import { AgentSidebar, type AgentTabType } from "@/components/agents/AgentSideba
 import { AgentHeader } from "@/components/agents/AgentHeader";
 import { AgentResourcesView } from "@/components/agents/AgentResourcesView";
 import { AgentVideoAcademyView } from "@/components/agents/AgentVideoAcademyView";
+import { OnboardMerchantModal } from "@/components/agents/OnboardMerchantModal";
+import { ClaimPayoutModal } from "@/components/agents/ClaimPayoutModal";
+import { FieldPitchPlaybook } from "@/components/agents/FieldPitchPlaybook";
+import { AgentQrFlyerModal } from "@/components/agents/AgentQrFlyerModal";
+import { LogVisitModal } from "@/components/agents/LogVisitModal";
 
 export const Route = createFileRoute("/agents")({
   component: AgentsPage,
@@ -194,6 +207,18 @@ export function AgentsPage() {
   const [showAgentDemoModal, setShowAgentDemoModal] = useState(false);
   const [selectedAcademyCourse, setSelectedAcademyCourse] = useState<CourseModule>(INITIAL_COURSE_MODULES[0]);
   const [agentVideoUrl, setAgentVideoUrl] = useState<string | null>(null);
+
+  // New Action Modals State
+  const [showOnboardModal, setShowOnboardModal] = useState(false);
+  const [showClaimPayoutModal, setShowClaimPayoutModal] = useState(false);
+  const [showQrFlyerModal, setShowQrFlyerModal] = useState(false);
+  const [selectedVisitStore, setSelectedVisitStore] = useState<{ id: string; name: string } | null>(null);
+
+  // Search & Filters State
+  const [merchantSearch, setMerchantSearch] = useState("");
+  const [merchantStatusFilter, setMerchantStatusFilter] = useState<"all" | "converted" | "pending">("all");
+  const [payoutSearch, setPayoutSearch] = useState("");
+  const [payoutTypeFilter, setPayoutTypeFilter] = useState<"all" | "onboarding_bonus" | "recurring_residual">("all");
 
   // Copy Feedback
   const [copiedLink, setCopiedLink] = useState(false);
@@ -324,15 +349,22 @@ export function AgentsPage() {
           const rawRefs: ReferralRecord[] = [];
           for (const d of snap.docs) {
             const data = d.data();
-            let storeName = "Nexa Store";
-            let planName = "Starter";
+            let storeName = data.storeName || "Nexa Store";
+            let planName = data.planName || "Starter";
+            let ownerName = data.ownerName || "Merchant";
+            let ownerPhone = data.ownerPhone || "";
+            let location = data.location || "Taraba State";
+            const paymentMethod = data.paymentMethod || "Bank Transfer";
 
             try {
               const storeSnap = await getDoc(doc(db, "stores", data.storeId));
               if (storeSnap.exists()) {
                 const sData = storeSnap.data();
-                storeName = sData.storeName || "Nexa Store";
-                planName = sData.subscriptionTier || "Starter";
+                if (!storeName || storeName === "Nexa Store") storeName = sData.storeName || "Nexa Store";
+                if (!planName || planName === "Starter") planName = sData.subscriptionTier || "Starter";
+                if (sData.ownerName) ownerName = sData.ownerName;
+                if (sData.ownerPhone) ownerPhone = sData.ownerPhone;
+                if (sData.city) location = sData.city;
               }
             } catch (err) {
               console.warn("Failed to fetch store detail for referral:", err);
@@ -347,7 +379,11 @@ export function AgentsPage() {
               convertedAt: data.convertedAt,
               churnedAt: data.churnedAt,
               storeName,
-              planName
+              ownerName,
+              ownerPhone,
+              location,
+              planName,
+              paymentMethod
             });
           }
           setReferrals(rawRefs);
@@ -704,7 +740,10 @@ export function AgentsPage() {
       const updatedLink = `${window.location.origin}/?ref=${uppercaseCode}`;
 
       await updateDoc(doc(db, "users", currentUser.uid), {
-        name: settingsName.trim()
+        name: settingsName.trim(),
+        bank: agentProfile.bank || "",
+        accountNumber: agentProfile.accountNumber || "",
+        accountName: agentProfile.accountName || ""
       });
 
       await updateDoc(doc(db, "agents", currentUser.uid), {
@@ -712,7 +751,10 @@ export function AgentsPage() {
         phone: settingsPhone.trim(),
         region: settingsRegion.trim(),
         referralCode: uppercaseCode,
-        referralLink: updatedLink
+        referralLink: updatedLink,
+        bank: agentProfile.bank || "",
+        accountNumber: agentProfile.accountNumber || "",
+        accountName: agentProfile.accountName || ""
       });
 
       toast.success("Agent profile settings updated successfully!");
@@ -1828,6 +1870,9 @@ export function AgentsPage() {
               onOpenMobileMenu={() => setMobileMenuOpen(true)}
               onOpenDemoPassModal={() => setShowAgentDemoModal(true)}
               onOpenAuthModal={() => setShowAuthModal(true)}
+              onOpenOnboardModal={() => setShowOnboardModal(true)}
+              onOpenPayoutModal={() => setShowClaimPayoutModal(true)}
+              onOpenQrModal={() => setShowQrFlyerModal(true)}
               isAuthenticated={!!currentUser}
               agentName={agentProfile.fullName}
               agentEmail={agentProfile.email}
@@ -1855,7 +1900,7 @@ export function AgentsPage() {
                       Active Partner
                     </Badge>
                   </div>
-                  <p className="text-xs text-slate-400">Share your referral link to track onboarding activity in your territory.</p>
+                  <p className="text-xs text-slate-400">Share your referral link or scan QR flyer to onboard stores in your territory.</p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3">
@@ -1873,6 +1918,61 @@ export function AgentsPage() {
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* FIELD QUICK ACTIONS HUB */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <button
+                  onClick={() => setShowOnboardModal(true)}
+                  className="p-4 bg-gradient-to-br from-[#2B5BFF]/20 to-[#00C4CF]/10 border border-[#2B5BFF]/30 hover:border-[#2B5BFF]/60 rounded-2xl text-left space-y-2 group transition-all cursor-pointer"
+                >
+                  <div className="h-9 w-9 bg-[#2B5BFF] text-white rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Plus className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Onboard Retail Store</span>
+                    <span className="text-[10px] text-slate-400 block">Log store &amp; earn ₦10k + ₦1.5k bonus</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setShowClaimPayoutModal(true)}
+                  className="p-4 bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 hover:border-emerald-500/60 rounded-2xl text-left space-y-2 group transition-all cursor-pointer"
+                >
+                  <div className="h-9 w-9 bg-emerald-500 text-slate-950 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Wallet className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Claim Payout</span>
+                    <span className="text-[10px] text-slate-400 block">Withdraw earnings or field allowance</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setShowQrFlyerModal(true)}
+                  className="p-4 bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/30 hover:border-amber-500/60 rounded-2xl text-left space-y-2 group transition-all cursor-pointer"
+                >
+                  <div className="h-9 w-9 bg-amber-500 text-slate-950 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <QrCode className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">Digital QR Flyer</span>
+                    <span className="text-[10px] text-slate-400 block">Show or print field agent QR badge</span>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setShowAgentDemoModal(true)}
+                  className="p-4 bg-gradient-to-br from-purple-500/20 to-indigo-500/10 border border-purple-500/30 hover:border-purple-500/60 rounded-2xl text-left space-y-2 group transition-all cursor-pointer"
+                >
+                  <div className="h-9 w-9 bg-purple-500 text-white rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Lock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-white block">12h Demo Link</span>
+                    <span className="text-[10px] text-slate-400 block">Generate free trial pass for store</span>
+                  </div>
+                </button>
               </div>
 
           {/* KPI CARDS */}
@@ -1982,113 +2082,284 @@ export function AgentsPage() {
           {/* ACTIVE TAB CONTENT */}
           <div className="space-y-6">
             {activeTab === "performance" && (
-              <div className="grid md:grid-cols-3 gap-6">
-                <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 md:col-span-1 space-y-4">
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <Award className="h-4 w-4 text-[#00C4CF]" /> Active Rates
-                  </div>
-                  <div className="space-y-3 text-xs divide-y divide-white/10">
-                    <div className="flex justify-between pt-2">
-                      <span className="text-slate-400">Logistics Allowance:</span>
-                      <span className="font-bold text-white">₦10,000</span>
+              <div className="space-y-6">
+                <div className="grid md:grid-cols-3 gap-6">
+                  <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 md:col-span-1 space-y-4">
+                    <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                      <Award className="h-4 w-4 text-[#00C4CF]" /> Active Commission Rates
                     </div>
-                    <div className="flex justify-between pt-2">
-                      <span className="text-slate-400">Pro Bonus:</span>
-                      <span className="font-bold text-white">₦1,500 (+₦500/mo)</span>
+                    <div className="space-y-3 text-xs divide-y divide-white/10">
+                      <div className="flex justify-between pt-2">
+                        <span className="text-slate-400">Logistics Allowance:</span>
+                        <span className="font-bold text-amber-300">₦10,000 / store</span>
+                      </div>
+                      <div className="flex justify-between pt-2">
+                        <span className="text-slate-400">Pro Signup Bonus:</span>
+                        <span className="font-bold text-[#4DE89A]">₦1,500 (+₦500/mo)</span>
+                      </div>
+                      <div className="flex justify-between pt-2">
+                        <span className="text-slate-400">Enterprise Bonus:</span>
+                        <span className="font-bold text-[#00C4CF]">₦5,000 (+₦1,000/mo)</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between pt-2">
-                      <span className="text-slate-400">Enterprise Bonus:</span>
-                      <span className="font-bold text-white">₦5,000 (+₦1,000/mo)</span>
-                    </div>
-                  </div>
-                </Card>
+                  </Card>
 
-                <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 md:col-span-2 space-y-4">
-                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-[#4DE89A]" /> Regular Settlement Run
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed">
-                    All accrued onboarding bonuses and recurring residual commissions are aggregated and paid automatically on the 1st day of every calendar month via direct electronic bank transfer.
-                  </p>
-                  <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs flex justify-between items-center">
-                    <span className="text-slate-400">Next Scheduled Payout Run:</span>
-                    <span className="font-mono font-bold text-[#4DE89A]">August 1, 2026</span>
-                  </div>
-                </Card>
+                  <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6 md:col-span-2 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-[#4DE89A]" /> Settlement &amp; Bank Disbursal SLA
+                      </div>
+                      <Badge className="bg-emerald-500/20 text-[#4DE89A] border-none text-[9px]">24h - 48h SLA</Badge>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Field allowances and verified onboarding bonuses can be requested on-demand via the <span className="text-[#00C4CF] font-bold">Claim Payout</span> tool. Scheduled monthly residual payouts are automatically processed on the 1st day of every month.
+                    </p>
+                    <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">REGISTERED BANK DISBURSAL DESTINATION</span>
+                        <span className="font-mono font-bold text-white">
+                          {agentProfile.bank || "Not Set"} — {agentProfile.accountNumber || "No Account"} ({agentProfile.accountName || agentProfile.fullName})
+                        </span>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => setShowClaimPayoutModal(true)}
+                        className="bg-[#2B5BFF] hover:bg-[#1A4AEE] text-white text-xs font-bold rounded-xl h-8 shrink-0"
+                      >
+                        Request Disbursal
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
+
+                {/* FIELD OBJECTION & ROI CALCULATOR PLAYBOOK */}
+                <FieldPitchPlaybook referralCode={agentProfile.referralCode} />
               </div>
             )}
 
             {activeTab === "referrals" && (
-              <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
-                {referrals.length === 0 ? (
-                  <div className="text-center py-12 space-y-2">
-                    <Users className="h-8 w-8 text-slate-500 mx-auto" />
-                    <p className="text-sm font-bold text-slate-300">No active referred stores found.</p>
-                    <p className="text-xs text-slate-400">Share your referral link with store owners to begin onboarding.</p>
+              <div className="space-y-4">
+                {/* FILTER & ACTION BAR */}
+                <div className="bg-[#141528] border border-white/10 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 w-full sm:w-auto flex-1">
+                    <div className="relative flex-1 max-w-md">
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <Input
+                        value={merchantSearch}
+                        onChange={(e) => setMerchantSearch(e.target.value)}
+                        placeholder="Search store name, owner, phone or location..."
+                        className="pl-9 bg-white/5 border-white/10 text-white rounded-xl text-xs h-9"
+                      />
+                    </div>
+
+                    <select
+                      value={merchantStatusFilter}
+                      onChange={(e) => setMerchantStatusFilter(e.target.value as "all" | "converted" | "pending")}
+                      className="bg-[#0F1020] border border-white/10 text-white rounded-xl h-9 px-3 text-xs outline-none focus:border-[#2B5BFF]"
+                    >
+                      <option value="all">All Statuses ({referrals.length})</option>
+                      <option value="converted">Active / Converted ({referrals.filter(r => r.status === "converted").length})</option>
+                      <option value="pending">Pending Onboarding ({referrals.filter(r => r.status === "pending").length})</option>
+                    </select>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/10 text-slate-400 uppercase">
-                          <th className="p-3">Store Name</th>
-                          <th className="p-3">Signup Date</th>
-                          <th className="p-3">Active Plan</th>
-                          <th className="p-3">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {referrals.map((r) => (
-                          <tr key={r.id}>
-                            <td className="p-3 font-bold text-white">{r.storeName}</td>
-                            <td className="p-3 text-slate-400">{new Date(r.createdAt).toLocaleDateString()}</td>
-                            <td className="p-3 uppercase font-bold text-[#00C4CF]">{r.planName}</td>
-                            <td className="p-3">
-                              <Badge className="bg-emerald-500/20 text-[#4DE89A] border-none text-[10px]">
-                                {r.status}
-                              </Badge>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card>
+
+                  <Button
+                    onClick={() => setShowOnboardModal(true)}
+                    className="bg-[#2B5BFF] hover:bg-[#1A4AEE] text-white font-bold text-xs h-9 gap-1.5 rounded-xl shrink-0 w-full sm:w-auto"
+                  >
+                    <Plus className="h-4 w-4" /> Onboard Retail Merchant
+                  </Button>
+                </div>
+
+                <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
+                  {(() => {
+                    const filtered = referrals.filter((r) => {
+                      const matchQuery = 
+                        (r.storeName || "").toLowerCase().includes(merchantSearch.toLowerCase()) ||
+                        (r.ownerName || "").toLowerCase().includes(merchantSearch.toLowerCase()) ||
+                        (r.ownerPhone || "").includes(merchantSearch) ||
+                        (r.location || "").toLowerCase().includes(merchantSearch.toLowerCase());
+                      const matchStatus = merchantStatusFilter === "all" || r.status === merchantStatusFilter;
+                      return matchQuery && matchStatus;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-center py-12 space-y-3">
+                          <Users className="h-10 w-10 text-slate-500 mx-auto" />
+                          <p className="text-sm font-bold text-slate-300">No matching store records found.</p>
+                          <p className="text-xs text-slate-400">Click "Onboard Retail Merchant" to register store visits in your territory.</p>
+                          <Button
+                            onClick={() => setShowOnboardModal(true)}
+                            className="bg-gradient-to-r from-[#2B5BFF] to-[#00C4CF] text-white font-bold text-xs rounded-xl h-9 gap-1.5 px-5"
+                          >
+                            <Plus className="h-4 w-4" /> Onboard First Store
+                          </Button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="border-b border-white/10 text-slate-400 uppercase font-mono text-[11px]">
+                              <th className="p-3">Store Details</th>
+                              <th className="p-3">Owner Contact</th>
+                              <th className="p-3">Plan</th>
+                              <th className="p-3">Onboarded</th>
+                              <th className="p-3">Status</th>
+                              <th className="p-3 text-right">Field Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {filtered.map((r) => (
+                              <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
+                                <td className="p-3">
+                                  <span className="font-bold text-white block text-sm">{r.storeName || "Nexa Store"}</span>
+                                  <span className="text-[10px] text-slate-400 block font-mono">ID: {r.storeId.slice(0, 8)}</span>
+                                </td>
+                                <td className="p-3 space-y-0.5">
+                                  <span className="text-slate-200 font-semibold block">{r.ownerName || "Merchant"}</span>
+                                  <span className="text-slate-400 font-mono text-[11px] block">{r.ownerPhone || "No Phone"}</span>
+                                </td>
+                                <td className="p-3">
+                                  <Badge className="bg-[#00C4CF]/20 text-[#00C4CF] border-none text-[10px] uppercase font-bold">
+                                    {r.planName || "Pro Plan"}
+                                  </Badge>
+                                </td>
+                                <td className="p-3 text-slate-400 font-mono">
+                                  {new Date(r.createdAt).toLocaleDateString()}
+                                </td>
+                                <td className="p-3">
+                                  <Badge className={
+                                    r.status === "converted"
+                                      ? "bg-emerald-500/20 text-[#4DE89A] border-none text-[10px] font-bold"
+                                      : "bg-amber-500/20 text-amber-300 border-none text-[10px] font-bold"
+                                  }>
+                                    {r.status === "converted" ? "Active / Converted" : "Pending Onboarding"}
+                                  </Badge>
+                                </td>
+                                <td className="p-3 text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setSelectedVisitStore({ id: r.storeId, name: r.storeName || "Store" })}
+                                      className="h-8 text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl text-[11px] gap-1 px-2.5"
+                                      title="Log Visit Note"
+                                    >
+                                      <MapPin className="h-3.5 w-3.5 text-[#00C4CF]" />
+                                      <span>Log Visit</span>
+                                    </Button>
+
+                                    {r.ownerPhone && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          const cleanPhone = r.ownerPhone?.replace(/\D/g, "");
+                                          const phoneWithCountry = cleanPhone?.startsWith("234") ? cleanPhone : `234${cleanPhone?.replace(/^0/, "")}`;
+                                          const msg = `Hello ${r.ownerName || "Merchant"}! 👋 I am your NexaStoreOS Growth Agent following up on your store ${r.storeName}. Need help with POS setup?`;
+                                          window.open(`https://wa.me/${phoneWithCountry}?text=${encodeURIComponent(msg)}`, "_blank");
+                                        }}
+                                        className="h-8 text-[#25D366] hover:bg-[#25D366]/10 rounded-xl text-[11px] gap-1 px-2.5"
+                                      >
+                                        <MessageSquare className="h-3.5 w-3.5" />
+                                        <span>WhatsApp</span>
+                                      </Button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </Card>
+              </div>
             )}
 
             {activeTab === "earnings" && (
-              <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
-                {earnings.length === 0 ? (
-                  <div className="text-center py-12 space-y-2">
-                    <ArrowRightLeft className="h-8 w-8 text-slate-500 mx-auto" />
-                    <p className="text-sm font-bold text-slate-300">Your ledger is currently empty.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/10 text-slate-400 uppercase">
-                          <th className="p-3">Date</th>
-                          <th className="p-3">Store</th>
-                          <th className="p-3">Type</th>
-                          <th className="p-3">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {earnings.map((e) => (
-                          <tr key={e.id}>
-                            <td className="p-3 text-slate-400">{new Date(e.timestamp).toLocaleDateString()}</td>
-                            <td className="p-3 font-bold text-white">{e.storeName}</td>
-                            <td className="p-3 text-slate-300">{e.commissionType}</td>
-                            <td className="p-3 font-mono font-bold text-[#4DE89A]">₦{e.amount.toLocaleString()}</td>
+              <div className="space-y-4">
+                {/* SUMMARY BAR & ACTION */}
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <Card className="bg-[#141528] border border-white/10 p-5 rounded-2xl text-white">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Cleared Paid Earnings</span>
+                    <p className="text-2xl font-black text-[#4DE89A] font-mono mt-1">₦{(agentProfile.earnings?.paid || 0).toLocaleString()}</p>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">Dispatched to bank</span>
+                  </Card>
+
+                  <Card className="bg-[#141528] border border-white/10 p-5 rounded-2xl text-white">
+                    <span className="text-[10px] text-amber-300 font-bold uppercase block">Pending Clearance</span>
+                    <p className="text-2xl font-black text-amber-400 font-mono mt-1">₦{(agentProfile.earnings?.pending || 0).toLocaleString()}</p>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">Clearing (30-day window)</span>
+                  </Card>
+
+                  <Card className="bg-gradient-to-br from-[#2B5BFF]/20 to-[#00C4CF]/10 border border-[#2B5BFF]/30 p-5 rounded-2xl text-white flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] text-[#00C4CF] font-bold uppercase block">Direct Bank Transfer</span>
+                      <span className="text-xs text-slate-300 block font-semibold">Request Logistics or Residual Payout</span>
+                    </div>
+                    <Button
+                      onClick={() => setShowClaimPayoutModal(true)}
+                      className="bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs rounded-xl h-8 gap-1.5 mt-2"
+                    >
+                      <Wallet className="h-4 w-4" /> Claim Payout
+                    </Button>
+                  </Card>
+                </div>
+
+                {/* LEDGER TABLE CARD */}
+                <Card className="bg-[#141528] border border-white/10 text-white rounded-2xl p-6">
+                  {earnings.length === 0 ? (
+                    <div className="text-center py-12 space-y-2">
+                      <ArrowRightLeft className="h-8 w-8 text-slate-500 mx-auto" />
+                      <p className="text-sm font-bold text-slate-300">Your commission ledger is currently empty.</p>
+                      <p className="text-xs text-slate-400">Onboard retail merchants to accumulate field allowances and monthly residuals.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/10 text-slate-400 uppercase font-mono text-[11px]">
+                            <th className="p-3">Transaction Date</th>
+                            <th className="p-3">Store Name</th>
+                            <th className="p-3">Commission Type</th>
+                            <th className="p-3">Amount (₦)</th>
+                            <th className="p-3">Settlement Status</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Card>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {earnings.map((e) => (
+                            <tr key={e.id} className="hover:bg-white/[0.02]">
+                              <td className="p-3 text-slate-400 font-mono">{new Date(e.timestamp).toLocaleDateString()}</td>
+                              <td className="p-3 font-bold text-white">{e.storeName || "Nexa Store"}</td>
+                              <td className="p-3 text-slate-300">
+                                <Badge className="bg-white/5 text-slate-300 border border-white/10 text-[10px]">
+                                  {e.commissionType}
+                                </Badge>
+                              </td>
+                              <td className="p-3 font-mono font-bold text-[#4DE89A]">₦{e.amount.toLocaleString()}</td>
+                              <td className="p-3">
+                                <Badge className={
+                                  e.status === "paid" 
+                                    ? "bg-emerald-500/20 text-[#4DE89A] border-none text-[10px]"
+                                    : "bg-amber-500/20 text-amber-300 border-none text-[10px]"
+                                }>
+                                  {e.status === "paid" ? "Paid to Bank" : "Pending Clearance"}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+              </div>
             )}
 
             {activeTab === "resources" && (
@@ -2439,6 +2710,47 @@ export function AgentsPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* AGENT FUNCTIONAL MODALS */}
+      {agentProfile && (
+        <>
+          <OnboardMerchantModal
+            isOpen={showOnboardModal}
+            onClose={() => setShowOnboardModal(false)}
+            agentId={agentProfile.agentId}
+            agentCode={agentProfile.referralCode}
+            agentName={agentProfile.fullName}
+          />
+
+          <ClaimPayoutModal
+            isOpen={showClaimPayoutModal}
+            onClose={() => setShowClaimPayoutModal(false)}
+            agentId={agentProfile.agentId}
+            agentName={agentProfile.fullName}
+            agentBank={agentProfile.bank || ""}
+            agentAccount={agentProfile.accountNumber || ""}
+            agentAccountName={agentProfile.accountName || agentProfile.fullName}
+            clearedEarnings={agentProfile.earnings?.paid || 0}
+            pendingEarnings={agentProfile.earnings?.pending || 0}
+          />
+
+          <AgentQrFlyerModal
+            isOpen={showQrFlyerModal}
+            onClose={() => setShowQrFlyerModal(false)}
+            agentName={agentProfile.fullName}
+            agentCode={agentProfile.referralCode}
+            referralLink={agentProfile.referralLink}
+          />
+
+          <LogVisitModal
+            isOpen={!!selectedVisitStore}
+            onClose={() => setSelectedVisitStore(null)}
+            agentId={agentProfile.agentId}
+            agentName={agentProfile.fullName}
+            store={selectedVisitStore}
+          />
+        </>
+      )}
 
     </div>
   );

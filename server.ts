@@ -208,7 +208,7 @@ Do not include placeholders like [Price] or [Link].`;
   let serverDbInstance: any = null;
   async function getServerDb() {
     const { initializeApp: serverInitApp, getApps: serverGetApps, getApp: serverGetApp } = await import("firebase/app");
-    const { initializeFirestore: serverInitFirestore } = await import("firebase/firestore");
+    const { initializeFirestore: serverInitFirestore, setLogLevel } = await import("firebase/firestore");
     const { getAuth: getClientAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import("firebase/auth");
     const { doc, writeBatch } = await import("firebase/firestore");
     
@@ -219,9 +219,15 @@ Do not include placeholders like [Price] or [Link].`;
     const auth = getClientAuth(app);
     
     if (!serverDbInstance) {
+      try {
+        setLogLevel("silent");
+      } catch {
+        // Ignore if log level already set
+      }
       serverDbInstance = serverInitFirestore(app, {
+        experimentalForceLongPolling: true,
         ignoreUndefinedProperties: true
-      }, firebaseConfig.firestoreDatabaseId || "(default)");
+      }, firebaseConfig.firestoreDatabaseId || undefined);
     }
     
     const db = serverDbInstance;
@@ -1429,23 +1435,26 @@ Please contact us directly on WhatsApp at **${storeInfo?.storePhone || "our supp
       const configRef = doc(db, "aiAssistantConfig", "default");
       const snap = await getDoc(configRef);
       if (!snap.exists()) {
-        await setDoc(configRef, {
-          creditsIncluded: {
-            starter: 0,
-            professional: 0,
-            enterprise: 100
-          },
-          topUpPriceNgn: 5000,
-          topUpCredits: 50
-        });
+        try {
+          await setDoc(configRef, {
+            creditsIncluded: {
+              starter: 0,
+              professional: 0,
+              enterprise: 100
+            },
+            topUpPriceNgn: 5000,
+            topUpCredits: 50
+          });
+        } catch {
+          // Non-blocking write fallback
+        }
       }
       return snap.exists() ? snap.data() : {
         creditsIncluded: { starter: 0, professional: 0, enterprise: 100 },
         topUpPriceNgn: 5000,
         topUpCredits: 50
       };
-    } catch (err) {
-      console.warn("Nexa OS Info: Offline or unreachable Firestore in ensureAiConfig, returning fallback config:", err);
+    } catch {
       return {
         creditsIncluded: { starter: 0, professional: 0, enterprise: 100 },
         topUpPriceNgn: 5000,
@@ -1471,12 +1480,15 @@ Please contact us directly on WhatsApp at **${storeInfo?.storePhone || "our supp
           creditsPurchased: 0,
           lastUpdated: new Date().toISOString()
         };
-        await setDoc(ledgerRef, newLedger);
+        try {
+          await setDoc(ledgerRef, newLedger);
+        } catch {
+          // Non-blocking write fallback
+        }
         return newLedger;
       }
       return snap.data();
-    } catch (err) {
-      console.warn("Nexa OS Info: Offline or unreachable Firestore in getOrCreateLedger, returning fallback ledger:", err);
+    } catch {
       const creditsIncluded = tier === "enterprise" ? 100 : (tier === "professional" ? 50 : 0);
       return {
         storeId,

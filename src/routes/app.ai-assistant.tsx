@@ -225,8 +225,14 @@ function AiAssistantPage() {
         setByokKey(snap.data().aiAssistantApiKey);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (!msg.includes("permission-denied") && !msg.includes("insufficient permissions")) {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (
+        !msg.includes("permission-denied") &&
+        !msg.includes("insufficient permissions") &&
+        !msg.includes("offline") &&
+        !msg.includes("client is offline") &&
+        !msg.includes("unavailable")
+      ) {
         console.error("Failed to fetch API key:", err);
       }
     }

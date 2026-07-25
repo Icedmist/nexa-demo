@@ -30,6 +30,7 @@ export interface PendingProduct {
   id: string;
   name: string;
   price: string;
+  costPrice?: string;
   stock: string;
   unit: string;
   categoryId?: string;
@@ -415,6 +416,7 @@ export function BulkProductEntry({ products, setProducts, categories, businessTy
         id: Math.random().toString(36).substring(2, 9), 
         name: "", 
         price: "", 
+        costPrice: "",
         stock: "", 
         unit: defaultUnit,
         categoryId: firstCat?.id || ""
@@ -591,10 +593,11 @@ export function BulkProductEntry({ products, setProducts, categories, businessTy
         {products.length > 0 && (
           <div className="space-y-3">
             {/* Desktop Header Grid (Hidden on Mobile) */}
-            <div className="hidden md:grid grid-cols-[2fr_1.5fr_1.2fr_1fr_1fr_1.2fr_40px] gap-3 px-2 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+            <div className="hidden md:grid grid-cols-[2fr_1.3fr_1fr_1fr_0.9fr_0.9fr_1.1fr_40px] gap-3 px-2 text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
               <div>Product Name</div>
               <div>Category</div>
-              <div>Price (₦)</div>
+              <div>Cost Price (₦)</div>
+              <div>Selling Price (₦)</div>
               <div>Stock</div>
               <div>Unit</div>
               <div>Options</div>
@@ -627,10 +630,15 @@ export function BulkProductEntry({ products, setProducts, categories, businessTy
                 ? searchDrugs(p.name)
                 : [];
 
+              const sellVal = Number(p.price) || 0;
+              const costVal = Number(p.costPrice) || 0;
+              const profitVal = sellVal > 0 && costVal > 0 ? sellVal - costVal : null;
+              const marginPct = sellVal > 0 && costVal > 0 && profitVal !== null ? Math.round((profitVal / sellVal) * 100) : null;
+
               return (
                 <div 
                   key={p.id} 
-                  className="group flex flex-col gap-3 md:grid md:grid-cols-[2fr_1.5fr_1.2fr_1fr_1fr_1.2fr_40px] md:gap-3 rounded-xl border border-muted-foreground/15 md:border-transparent p-4 md:p-1 relative transition-all duration-200 hover:border-primary/25 md:hover:bg-accent/10 md:rounded-lg"
+                  className="group flex flex-col gap-3 md:grid md:grid-cols-[2fr_1.3fr_1fr_1fr_0.9fr_0.9fr_1.1fr_40px] md:gap-3 rounded-xl border border-muted-foreground/15 md:border-transparent p-4 md:p-1 relative transition-all duration-200 hover:border-primary/25 md:hover:bg-accent/10 md:rounded-lg"
                 >
                   {/* Delete button absolute positioned on mobile, column on inline desktop */}
                   <div className="absolute top-2 right-2 md:relative md:top-auto md:right-auto md:order-last md:flex md:items-center md:justify-center">
@@ -730,9 +738,24 @@ export function BulkProductEntry({ products, setProducts, categories, businessTy
                     </Select>
                   </div>
 
-                  {/* Price */}
+                  {/* Cost Price */}
                   <div className="space-y-1 md:space-y-0">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block md:hidden">Price (₦)</span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block md:hidden">Cost Price (₦)</span>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        value={p.costPrice || ""}
+                        onChange={(e) => updateRow(p.id, "costPrice", e.target.value)}
+                        placeholder="1800"
+                        className="h-10 text-sm font-mono padded-price rounded-xl focus-visible:ring-primary/20 pl-6"
+                      />
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">₦</span>
+                    </div>
+                  </div>
+
+                  {/* Selling Price */}
+                  <div className="space-y-1 md:space-y-0">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground block md:hidden">Selling Price (₦)</span>
                     <div className="relative">
                       <Input
                         type="number"
@@ -744,6 +767,12 @@ export function BulkProductEntry({ products, setProducts, categories, businessTy
                       />
                       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">₦</span>
                     </div>
+                    {marginPct !== null && profitVal !== null && (
+                      <div className="text-[9px] font-bold mt-0.5 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <span>+{marginPct}% margin</span>
+                        <span>(₦{profitVal.toLocaleString()})</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Stock */}

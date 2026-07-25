@@ -15,7 +15,8 @@ import {
   Phone, 
   CheckCircle2, 
   Scan,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,10 +98,112 @@ function playScanBeep(type: "beep" | "success" | "error" = "beep") {
   }
 }
 
+// Pre-populated barcode database for non-store FMCG & brand recognition
+const PRE_POPULATED_BARCODES = [
+  {
+    barcode: "6151100021183",
+    name: "Peak Milk Instant Powder 400g",
+    category: "Beverages & Dairy",
+    emoji: "🥛",
+    imageUrl: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=200&auto=format&fit=crop&q=60",
+    suggestedCostPrice: 3800,
+    suggestedSellingPrice: 4500,
+    brand: "Peak Milk",
+    unit: "pcs"
+  },
+  {
+    barcode: "6151122334455",
+    name: "Indomie Instant Noodles Belle Full 280g",
+    category: "Packaged Foods",
+    emoji: "🍜",
+    imageUrl: "https://images.unsplash.com/photo-1612927601601-6638404737ce?w=200&auto=format&fit=crop&q=60",
+    suggestedCostPrice: 350,
+    suggestedSellingPrice: 450,
+    brand: "Indomie",
+    unit: "pack"
+  },
+  {
+    barcode: "5449000000996",
+    name: "Coca-Cola Bottle 50cl Original Taste",
+    category: "Beverages & Dairy",
+    emoji: "🥤",
+    imageUrl: "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=200&auto=format&fit=crop&q=60",
+    suggestedCostPrice: 200,
+    suggestedSellingPrice: 250,
+    brand: "Coca-Cola",
+    unit: "bottle"
+  },
+  {
+    barcode: "5011321773411",
+    name: "Panadol Extra Pain Relief 10s",
+    category: "Pharmacy",
+    emoji: "💊",
+    imageUrl: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=200&auto=format&fit=crop&q=60",
+    suggestedCostPrice: 850,
+    suggestedSellingPrice: 1200,
+    brand: "GSK",
+    unit: "pack"
+  },
+  {
+    barcode: "7613035334455",
+    name: "Nestle Milo Chocolate Powder 500g",
+    category: "Beverages & Dairy",
+    emoji: "☕",
+    suggestedCostPrice: 2800,
+    suggestedSellingPrice: 3400,
+    brand: "Nestle",
+    unit: "tin"
+  },
+  {
+    barcode: "6151100998877",
+    name: "Golden Morn Cereal 900g",
+    category: "Packaged Foods",
+    emoji: "🥣",
+    suggestedCostPrice: 2200,
+    suggestedSellingPrice: 2700,
+    brand: "Nestle",
+    unit: "pack"
+  },
+  {
+    barcode: "5449000014528",
+    name: "Fanta Orange Can 33cl",
+    category: "Beverages & Dairy",
+    emoji: "🍊",
+    suggestedCostPrice: 250,
+    suggestedSellingPrice: 300,
+    brand: "Coca-Cola",
+    unit: "can"
+  },
+  {
+    barcode: "5449000005885",
+    name: "Sprite Lemon-Lime Bottle 50cl",
+    category: "Beverages & Dairy",
+    emoji: "🍋",
+    suggestedCostPrice: 200,
+    suggestedSellingPrice: 250,
+    brand: "Coca-Cola",
+    unit: "bottle"
+  }
+];
+
 interface QuickCartItem {
   item: Item;
   quantity: number;
   unitPrice: number;
+}
+
+interface UnrecognizedScanData {
+  code: string;
+  name: string;
+  category: string;
+  sellingPrice: string;
+  costPrice: string;
+  stock: string;
+  unit: string;
+  isRecognized: boolean;
+  recognitionSource?: string;
+  imageUrl?: string;
+  emoji?: string;
 }
 
 export function SalesQuickScanCheckout() {
@@ -131,6 +234,10 @@ export function SalesQuickScanCheckout() {
   const [restockCost, setRestockCost] = useState<string>("0");
   const [restockSelling, setRestockSelling] = useState<string>("0");
   const [isUpdatingStock, setIsUpdatingStock] = useState(false);
+
+  // Non-store unrecognized barcode / QR scan state
+  const [unrecognizedScan, setUnrecognizedScan] = useState<UnrecognizedScanData | null>(null);
+  const [isSavingNewItem, setIsSavingNewItem] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
@@ -236,7 +343,7 @@ export function SalesQuickScanCheckout() {
   const taxAmount = subtotal * (taxRate / 100);
   const totalAmount = subtotal + taxAmount;
 
-  const handleScanOrSubmit = (inputVal: string) => {
+  const handleScanOrSubmit = async (inputVal: string) => {
     const rawQuery = inputVal.trim();
     if (!rawQuery) return;
 
@@ -315,14 +422,159 @@ export function SalesQuickScanCheckout() {
         });
         toast.success(`Scanned: ${matchedItem.name} via ${mappedAs === "store_qr" ? "Store QR Mapping" : "Manufacturer Code"}`);
       }
-    } else {
-      playScanBeep("error");
-      toast.error(`No inventory item matches code "${rawQuery}" (${selectedScanMode === "store_qr" ? "Store QR Mode" : selectedScanMode === "manufacturer_code" ? "Manufacturer Mode" : "Auto Mode"})`);
+      setScanInput("");
+      if (!isCameraActive) {
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
+      return;
     }
 
+    // 3. UNRECOGNIZED / NON-STORE BARCODE & QR CODE RECOGNITION
+    playScanBeep("beep");
+
+    let preName = "";
+    let preCategory = "General";
+    let preSellingPrice = "1000";
+    let preCostPrice = "800";
+    let preUnit = "pcs";
+    let preEmoji = "📦";
+    let preImageUrl = "";
+    let isRecognized = false;
+    let recognitionSource = "";
+
+    // A. Check if rawQuery is embedded JSON QR Code with product metadata
+    if (rawQuery.startsWith("{") && rawQuery.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(rawQuery);
+        if (parsed.name || parsed.title || parsed.productName || parsed.price) {
+          preName = parsed.name || parsed.title || parsed.productName || "Scanned QR Product";
+          preSellingPrice = String(parsed.price || parsed.sellingPrice || parsed.amount || 1000);
+          preCostPrice = String(parsed.costPrice || parsed.cost || Math.round(Number(preSellingPrice) * 0.8));
+          preCategory = parsed.category || "General";
+          preUnit = parsed.unit || "pcs";
+          preEmoji = parsed.emoji || "🏷️";
+          isRecognized = true;
+          recognitionSource = "Embedded QR Data";
+        }
+      } catch (e) {
+        console.warn("QR JSON parse attempt:", e);
+      }
+    }
+
+    // B. Check Pre-populated FMCG Barcode Database
+    if (!isRecognized) {
+      const match = PRE_POPULATED_BARCODES.find(
+        (p) => p.barcode === rawQuery || p.barcode.endsWith(rawQuery) || rawQuery.endsWith(p.barcode)
+      );
+
+      if (match) {
+        preName = match.name;
+        preCategory = match.category;
+        preSellingPrice = match.suggestedSellingPrice.toString();
+        preCostPrice = match.suggestedCostPrice.toString();
+        preUnit = match.unit || "pcs";
+        preEmoji = match.emoji || "🥛";
+        preImageUrl = match.imageUrl || "";
+        isRecognized = true;
+        recognitionSource = "Global FMCG Barcode DB";
+      }
+    }
+
+    // C. Check live server-side AI Barcode lookup if numeric
+    if (!isRecognized && /^\d{6,14}$/.test(rawQuery)) {
+      try {
+        const res = await fetch("/api/barcode/lookup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ barcode: rawQuery })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.name) {
+            preName = data.name;
+            preCategory = data.category || "General";
+            preSellingPrice = String(data.suggestedSellingPrice || 1000);
+            preCostPrice = String(data.suggestedCostPrice || Math.round(Number(preSellingPrice) * 0.8));
+            preEmoji = data.emoji || "📦";
+            isRecognized = true;
+            recognitionSource = "AI Barcode Lookup";
+          }
+        }
+      } catch (e) {
+        console.warn("Server barcode lookup error:", e);
+      }
+    }
+
+    // Fallback default name if unrecognized
+    if (!preName) {
+      preName = `Scanned Item (${rawQuery})`;
+    }
+
+    // Trigger Non-Store Barcode / QR dialog
+    setUnrecognizedScan({
+      code: rawQuery,
+      name: preName,
+      category: preCategory,
+      sellingPrice: preSellingPrice,
+      costPrice: preCostPrice,
+      stock: "50",
+      unit: preUnit,
+      isRecognized,
+      recognitionSource,
+      emoji: preEmoji,
+      imageUrl: preImageUrl
+    });
+
     setScanInput("");
-    if (!isCameraActive) {
-      setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const handleSaveToCatalogAndSell = async () => {
+    if (!unrecognizedScan) return;
+    const name = unrecognizedScan.name.trim() || `Scanned Item (${unrecognizedScan.code})`;
+    const price = parseFloat(unrecognizedScan.sellingPrice) || 0;
+    const cost = parseFloat(unrecognizedScan.costPrice) || 0;
+    const stock = parseInt(unrecognizedScan.stock) || 50;
+    const category = unrecognizedScan.category || "General";
+    const unit = unrecognizedScan.unit || "pcs";
+    const code = unrecognizedScan.code;
+
+    setIsSavingNewItem(true);
+    try {
+      const newItemId = `item-${Date.now()}`;
+      const newItem: Item = {
+        id: newItemId,
+        name,
+        sellingPrice: price,
+        costPrice: cost,
+        currentStock: stock,
+        reorderPoint: 10,
+        unit,
+        sku: code,
+        barcode: code,
+        category,
+        imageUrl: unrecognizedScan.imageUrl,
+        emoji: unrecognizedScan.emoji || "📦",
+        createdAt: new Date().toISOString()
+      };
+
+      // Save item to store catalog
+      await createItem(newItem);
+
+      // Add to active quick scan sale cart
+      setScannedItems(prev => {
+        const next = new Map(prev);
+        next.set(newItemId, (next.get(newItemId) || 0) + 1);
+        return next;
+      });
+
+      playScanBeep("success");
+      toast.success(`Saved "${name}" to Catalog and added to active Sale!`);
+      setUnrecognizedScan(null);
+    } catch (err) {
+      console.error("Error creating item from scan:", err);
+      toast.error("Failed to add new item to catalog.");
+    } finally {
+      setIsSavingNewItem(false);
     }
   };
 
@@ -728,12 +980,35 @@ export function SalesQuickScanCheckout() {
                 <p className="text-[10px] text-muted-foreground">Click any product to simulate a real-world hardware scan beep.</p>
               </div>
               
-              <Input
-                value={simulatorSearch}
-                onChange={(e) => setSimulatorSearch(e.target.value)}
-                placeholder="Search items to scan..."
-                className="w-full sm:w-48 h-8 text-[11px] font-sans rounded-lg bg-muted/20"
-              />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <Input
+                  value={simulatorSearch}
+                  onChange={(e) => setSimulatorSearch(e.target.value)}
+                  placeholder="Search items to scan..."
+                  className="w-full sm:w-40 h-8 text-[11px] font-sans rounded-lg bg-muted/20"
+                />
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={() => handleScanOrSubmit("6151100021183")}
+                    className="h-8 text-[10px] font-bold rounded-lg border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+                  >
+                    🥛 Non-Store Barcode
+                  </Button>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={() => handleScanOrSubmit(JSON.stringify({ name: "Specialized Premium QR Item", price: 6500, category: "Electronics", unit: "pcs" }))}
+                    className="h-8 text-[10px] font-bold rounded-lg border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300 hover:bg-blue-500/20"
+                  >
+                    🏷️ Non-Store QR
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {scannerSimulatorPills.length > 0 ? (
@@ -1062,6 +1337,130 @@ export function SalesQuickScanCheckout() {
                   className="bg-primary hover:brightness-110 text-primary-foreground rounded-xl text-xs font-bold"
                 >
                   {isUpdatingStock ? "Updating..." : "Save & Update Stock"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Non-Store Barcode / QR Detected Dialog */}
+      <Dialog open={unrecognizedScan !== null} onOpenChange={(open) => { if (!open) setUnrecognizedScan(null); }}>
+        <DialogContent className="max-w-lg bg-card border border-border sm:rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <Sparkles className="h-5 w-5 text-amber-500 animate-pulse" />
+              Non-Store Barcode / QR Code Detected
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              The scanned code <code className="font-mono bg-muted px-1.5 py-0.5 rounded text-foreground font-bold">{unrecognizedScan?.code}</code> is not yet in your store catalog. Add it to your catalog and sell immediately!
+            </DialogDescription>
+          </DialogHeader>
+
+          {unrecognizedScan && (
+            <div className="space-y-4 py-2 text-left">
+              {/* Recognition Badge */}
+              {unrecognizedScan.isRecognized ? (
+                <div className="flex items-center gap-2.5 bg-amber-500/10 border border-amber-500/20 p-3 rounded-2xl text-xs text-amber-700 dark:text-amber-300 font-medium">
+                  <span className="text-xl">{unrecognizedScan.emoji || "✨"}</span>
+                  <div>
+                    <span className="font-bold text-amber-800 dark:text-amber-200 block text-xs">
+                      {unrecognizedScan.recognitionSource || "Product Recognized!"}
+                    </span>
+                    <span className="text-[11px]">We recognized this item and auto-filled suggested catalog parameters below.</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 p-3 rounded-2xl text-xs text-blue-700 dark:text-blue-300 font-medium">
+                  <Scan className="h-4 w-4 shrink-0 text-blue-500" />
+                  <span>Enter the product parameters below to add it directly to your store catalog and active sale!</span>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {/* Product Name */}
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold text-foreground">Product Name *</Label>
+                  <Input
+                    value={unrecognizedScan.name}
+                    onChange={(e) => setUnrecognizedScan(prev => prev ? { ...prev, name: e.target.value } : null)}
+                    placeholder="e.g. Peak Milk Instant Powder 400g"
+                    className="text-sm font-medium"
+                  />
+                </div>
+
+                {/* Selling & Cost Price */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-foreground">Selling Price ({NAIRA}) *</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={unrecognizedScan.sellingPrice}
+                      onChange={(e) => setUnrecognizedScan(prev => prev ? { ...prev, sellingPrice: e.target.value } : null)}
+                      placeholder="4500"
+                      className="font-mono text-sm font-bold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-foreground">Cost Price ({NAIRA})</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={unrecognizedScan.costPrice}
+                      onChange={(e) => setUnrecognizedScan(prev => prev ? { ...prev, costPrice: e.target.value } : null)}
+                      placeholder="3800"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Initial Stock & Category */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-foreground">Initial Catalog Stock *</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={unrecognizedScan.stock}
+                      onChange={(e) => setUnrecognizedScan(prev => prev ? { ...prev, stock: e.target.value } : null)}
+                      placeholder="50"
+                      className="font-mono text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold text-foreground">Category</Label>
+                    <Input
+                      value={unrecognizedScan.category}
+                      onChange={(e) => setUnrecognizedScan(prev => prev ? { ...prev, category: e.target.value } : null)}
+                      placeholder="General / Beverages"
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row justify-end gap-2 pt-3 border-t border-border">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setUnrecognizedScan(null)}
+                  className="rounded-xl text-xs"
+                >
+                  Cancel
+                </Button>
+                
+                <Button
+                  type="button"
+                  onClick={handleSaveToCatalogAndSell}
+                  disabled={isSavingNewItem}
+                  className="bg-primary hover:brightness-110 text-primary-foreground rounded-xl text-xs font-bold gap-1.5 shadow-md shadow-primary/20"
+                >
+                  <Plus className="h-4 w-4" />
+                  {isSavingNewItem ? "Saving & Adding..." : "Save to Catalog & Add to Sale"}
                 </Button>
               </div>
             </div>

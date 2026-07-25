@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { BusinessOnboarding } from "@/components/onboarding/BusinessOnboarding";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { LegalModal } from "@/components/legal/LegalModal";
+import { useOnboardingNavigation, type OnboardingEntryMethod } from "@/hooks/useOnboardingNavigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { motion, AnimatePresence } from "motion/react";
@@ -231,6 +232,7 @@ function LandingPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const { settings } = useSystemSettings();
   const navigate = useNavigate();
+  const { handleOptionRoute } = useOnboardingNavigation();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isOnboardingDemo, setIsOnboardingDemo] = useState(false);
   const [hasAdmin, setHasAdmin] = useState<boolean | null>(null);
@@ -616,6 +618,7 @@ function LandingPage() {
     initialItems?: Array<{ 
       name: string; 
       price: string; 
+      costPrice?: string;
       stock: string; 
       unit: string; 
       categoryId?: string;
@@ -628,6 +631,7 @@ function LandingPage() {
     country?: string;
     state?: string;
     lga?: string;
+    entryMethod?: OnboardingEntryMethod;
   }) => {
     if (isOnboardingDemo) {
       enterDemoMode({ 
@@ -646,6 +650,7 @@ function LandingPage() {
         initialItems: data.initialItems?.map(item => ({
           name: item.name,
           price: item.price,
+          costPrice: item.costPrice,
           stock: item.stock,
           unit: item.unit,
           categoryId: item.categoryId,
@@ -658,7 +663,7 @@ function LandingPage() {
       });
       localStorage.setItem("stackwise-onboarding-done", "true");
       setShowOnboarding(false);
-      navigate({ to: "/app/dashboard" });
+      handleOptionRoute(data.entryMethod);
     }
   };
 
@@ -667,7 +672,7 @@ function LandingPage() {
       enterDemoMode();
       localStorage.setItem("stackwise-onboarding-done", "true");
       setShowOnboarding(false);
-      navigate({ to: "/app/dashboard" });
+      handleOptionRoute("skip");
     }
   };
 
