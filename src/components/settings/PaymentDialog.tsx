@@ -176,6 +176,17 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
                 </DialogDescription>
               </DialogHeader>
 
+              {/* Monnify Setup Status Banner */}
+              <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between text-xs text-amber-300 font-medium">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 text-amber-400 shrink-0 animate-pulse" />
+                  <span>Monnify Gateway: Awaiting Live API Keys & Contract Code Binding</span>
+                </div>
+                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] uppercase font-mono">
+                  Pending API Setup
+                </Badge>
+              </div>
+
               <div className="mt-4 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Subscription Fee</p>

@@ -39,6 +39,13 @@ export interface StoreSettings {
   moniepointAccountNumber?: string;
   moniepointAccountName?: string;
   moniepointBankName?: string;
+  monnifyApiKey?: string;
+  monnifySecretKey?: string;
+  monnifyContractCode?: string;
+  monnifyAccountNumber?: string;
+  monnifyAccountName?: string;
+  monnifyBankName?: string;
+  monnifyStatus?: "waiting_for_keys" | "active" | "testing";
   aiAssistantApiKey?: string;
   storeSlug?: string;
   onboardedAt?: string;
@@ -74,7 +81,17 @@ const DEFAULT_SETTINGS: StoreSettings = {
   },
   country: "Nigeria",
   state: "",
-  lga: ""
+  lga: "",
+  moniepointBankName: "Moniepoint Microfinance Bank",
+  moniepointAccountNumber: "5028910423",
+  moniepointAccountName: "Nexa OS Main Operations",
+  monnifyBankName: "Moniepoint MFB (Monnify Gateway)",
+  monnifyAccountNumber: "5028910423",
+  monnifyAccountName: "NexaStoreOS / Monnify Gateway",
+  monnifyContractCode: "",
+  monnifyApiKey: "",
+  monnifySecretKey: "",
+  monnifyStatus: "waiting_for_keys"
 };
 
 interface SystemSettingsContextValue {

@@ -25,7 +25,9 @@ import {
   Ticket,
   QrCode,
   User,
-  Lock
+  Lock,
+  Copy,
+  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -165,6 +167,9 @@ function PublicStorefront() {
   });
   const [simulatedOnSite, setSimulatedOnSite] = useState(false);
   const [orderIdRef, setOrderIdRef] = useState(() => `NEX-${Math.floor(Math.random() * 89999 + 10000)}`);
+  const [copiedAcc, setCopiedAcc] = useState(false);
+  const [copiedAmt, setCopiedAmt] = useState(false);
+  const [copiedRef, setCopiedRef] = useState(false);
 
   const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371e3;
@@ -979,23 +984,124 @@ function PublicStorefront() {
                   )}
 
                   {checkoutStep === "payment" && (
-                     <div className="space-y-6">
-                        <div className="p-4 rounded-2xl border-2 border-primary bg-primary/5">
-                           <div className="flex items-center justify-between mb-4">
-                              <Landmark className="h-6 w-6 text-primary" />
-                              <Badge className="bg-primary text-white border-none font-bold">Recommended</Badge>
-                           </div>
-                           <h4 className="font-bold mb-1">Pay with Moniepoint</h4>
-                           <p className="text-xs text-muted-foreground">Secure, instant bank transfer or USSD.</p>
-                           <div className="mt-4 pt-4 border-t border-primary/10 flex items-center justify-between text-lg font-bold">
-                              <span>Total to Pay:</span>
-                              <span className="text-primary">₦{cartTotal.toLocaleString()}</span>
-                           </div>
+                     <div className="space-y-4">
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40 text-xs">
+                          <span className="text-muted-foreground font-medium">Order Location:</span>
+                          <span className="font-bold text-foreground">
+                            {deliveryMethod === "instore" ? `🏪 ${inStoreLocationLabel}` : `🚚 Home Delivery`}
+                          </span>
                         </div>
-                        
-                        <div className="flex items-center gap-2 p-3 text-[10px] text-muted-foreground leading-tight bg-muted/50 rounded-lg">
-                           <Info className="h-4 w-4 text-primary flex-shrink-0" />
-                           <p>By clicking "Complete Payment", you'll be redirected to Nexa's secure Moniepoint gateway.</p>
+
+                        {/* Direct Bank Transfer Account Card */}
+                        <div className="p-5 rounded-2xl border-2 border-emerald-500/30 bg-gradient-to-b from-emerald-500/10 to-teal-500/5 dark:from-emerald-950/30 dark:to-teal-950/20 shadow-md space-y-4">
+                           <div className="flex items-center justify-between border-b border-emerald-500/20 pb-3">
+                              <div className="flex items-center gap-2">
+                                 <div className="h-8 w-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
+                                    <Landmark className="h-4 w-4" />
+                                 </div>
+                                 <div>
+                                    <h4 className="font-extrabold text-sm text-foreground">Direct Bank Transfer</h4>
+                                    <p className="text-[10px] text-muted-foreground">Transfer via your mobile bank app or USSD</p>
+                                 </div>
+                              </div>
+                              <Badge className="bg-emerald-600 text-white font-bold text-[10px] uppercase">
+                                Verified Store
+                              </Badge>
+                           </div>
+
+                           <div className="space-y-3">
+                              {/* Bank Name */}
+                              <div className="flex items-center justify-between text-xs">
+                                 <span className="text-muted-foreground font-medium">Bank Name</span>
+                                 <span className="font-bold text-foreground bg-card px-2.5 py-1 rounded-md border border-border">
+                                    {onboarding.moniepointBankName || "Moniepoint Microfinance Bank"}
+                                 </span>
+                              </div>
+
+                              {/* Account Number with Prominent Copy Button */}
+                              <div className="p-3.5 bg-card rounded-xl border border-emerald-500/30 flex items-center justify-between gap-3 shadow-inner">
+                                 <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Account Number</p>
+                                    <p className="text-xl font-mono font-black tracking-wider text-emerald-600 dark:text-emerald-400">
+                                       {onboarding.moniepointAccountNumber || "5028910423"}
+                                    </p>
+                                 </div>
+                                 <Button
+                                    size="sm"
+                                    onClick={() => {
+                                       navigator.clipboard.writeText(onboarding.moniepointAccountNumber || "5028910423");
+                                       setCopiedAcc(true);
+                                       toast.success("Bank Account Number copied!");
+                                       setTimeout(() => setCopiedAcc(false), 2000);
+                                    }}
+                                    className="h-9 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 rounded-lg shadow-sm"
+                                 >
+                                    {copiedAcc ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                                    {copiedAcc ? "Copied" : "Copy Account"}
+                                 </Button>
+                              </div>
+
+                              {/* Account Name */}
+                              <div className="flex items-center justify-between text-xs">
+                                 <span className="text-muted-foreground font-medium">Account Name</span>
+                                 <span className="font-bold text-foreground text-right">
+                                    {onboarding.moniepointAccountName || `${onboarding.storeName || "Nexa Store"} Main Operations`}
+                                 </span>
+                              </div>
+
+                              {/* Amount to Pay */}
+                              <div className="p-3 bg-card rounded-xl border border-border flex items-center justify-between gap-2">
+                                 <div>
+                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Total Amount to Pay</p>
+                                    <p className="text-lg font-bold text-primary">₦{cartTotal.toLocaleString()}</p>
+                                 </div>
+                                 <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                       navigator.clipboard.writeText(cartTotal.toString());
+                                       setCopiedAmt(true);
+                                       toast.success("Amount copied!");
+                                       setTimeout(() => setCopiedAmt(false), 2000);
+                                    }}
+                                    className="h-8 text-xs font-bold gap-1"
+                                 >
+                                    {copiedAmt ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                                    Copy Amount
+                                 </Button>
+                              </div>
+
+                              {/* Transfer Memo / Order Ref */}
+                              <div className="flex items-center justify-between text-xs pt-1">
+                                 <span className="text-muted-foreground font-medium">Transfer Reference / Memo</span>
+                                 <div className="flex items-center gap-1">
+                                    <span className="font-mono font-bold text-foreground bg-muted px-2 py-0.5 rounded text-[11px]">{orderIdRef}</span>
+                                    <Button
+                                       variant="ghost"
+                                       size="icon"
+                                       className="h-6 w-6"
+                                       onClick={() => {
+                                          navigator.clipboard.writeText(orderIdRef);
+                                          setCopiedRef(true);
+                                          toast.success("Reference copied!");
+                                          setTimeout(() => setCopiedRef(false), 2000);
+                                       }}
+                                    >
+                                       {copiedRef ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                                    </Button>
+                                 </div>
+                              </div>
+                           </div>
+
+                           {/* Instructions */}
+                           <div className="p-3 bg-card/80 rounded-xl text-[11px] text-muted-foreground space-y-1 border border-border/50">
+                              <p className="font-bold text-foreground text-xs flex items-center gap-1">
+                                 <Info className="h-3.5 w-3.5 text-emerald-500" /> How to complete payment:
+                              </p>
+                              <p>1. Tap <strong>Copy Account</strong> and open your mobile bank app or dial USSD.</p>
+                              <p>2. Transfer exact total <strong>₦{cartTotal.toLocaleString()}</strong> to <strong>{onboarding.moniepointBankName || "Moniepoint MFB"}</strong>.</p>
+                              <p>3. Return here and click <strong>"I Have Completed Transfer"</strong> to get your order pass.</p>
+                           </div>
                         </div>
                      </div>
                   )}
@@ -1070,7 +1176,11 @@ function PublicStorefront() {
 
                   {checkoutStep !== "success" && (
                     <Button 
-                      className="w-full h-12 text-sm font-bold rounded-2xl shadow-xl shadow-primary/20"
+                      className={`w-full h-12 text-sm font-bold rounded-2xl shadow-xl transition-all ${
+                        checkoutStep === "payment" 
+                          ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20" 
+                          : "shadow-primary/20"
+                      }`}
                       disabled={checkoutStep === "details" && (!customerInfo.name || !customerInfo.phone || (deliveryMethod === "delivery" && !customerInfo.address))}
                       onClick={async () => {
                         if (checkoutStep === "details") {
@@ -1095,7 +1205,7 @@ function PublicStorefront() {
                         }
                       }}
                     >
-                      {checkoutStep === "details" ? "Continue to Payment" : `Confirm Payment: ₦${cartTotal.toLocaleString()}`}
+                      {checkoutStep === "details" ? "Continue to Payment" : "I Have Completed Transfer"}
                     </Button>
                   )}
                </div>

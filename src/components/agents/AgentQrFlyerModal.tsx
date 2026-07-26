@@ -18,31 +18,43 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 interface AgentQrFlyerModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  agentName: string;
-  agentCode: string;
+  open?: boolean;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onClose?: () => void;
+  agentName?: string;
+  agentCode?: string;
   agentPhone?: string;
   agentRegion?: string;
-  referralLink: string;
+  referralLink?: string;
 }
 
 export function AgentQrFlyerModal({
   open,
+  isOpen,
   onOpenChange,
-  agentName,
-  agentCode,
+  onClose,
+  agentName = "Growth Partner",
+  agentCode = "NEXADEMO",
   agentPhone = "090-380-26109",
   agentRegion = "Taraba State",
   referralLink
 }: AgentQrFlyerModalProps) {
+  const isModalOpen = open ?? isOpen ?? false;
+  const effLink = referralLink || `${window.location.origin}/?ref=${agentCode}`;
+
+  const handleOpenChange = (val: boolean) => {
+    if (onOpenChange) onOpenChange(val);
+    if (!val && onClose) onClose();
+  };
+
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Dynamic QR code API endpoint using quickchart or Google Charts API
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(referralLink)}&color=0F1020&bgcolor=FFFFFF`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(effLink)}&color=0F1020&bgcolor=FFFFFF`;
 
   const copyLink = () => {
-    navigator.clipboard.writeText(referralLink);
+    navigator.clipboard.writeText(effLink);
     setCopiedLink(true);
     toast.success("Referral link copied!");
     setTimeout(() => setCopiedLink(false), 2000);
@@ -65,7 +77,7 @@ Contact me directly at ${agentPhone} for instant store setup & training!`;
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isModalOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg bg-[#141528] border border-white/10 text-white rounded-3xl p-6 sm:p-8">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-bold font-['Bricolage_Grotesque'] text-white">

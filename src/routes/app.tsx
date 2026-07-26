@@ -190,6 +190,9 @@ function AppLayout() {
     storeName: string;
     brandColor: string;
     moniepointKey?: string;
+    moniepointAccountNumber?: string;
+    moniepointAccountName?: string;
+    moniepointBankName?: string;
     storeSlug?: string;
     electronicsMainType?: "devices" | "accessories" | "both";
     textilePrimarilySellsBy?: "yard" | "roll" | "both";
@@ -209,6 +212,9 @@ function AppLayout() {
         storeName: data.storeName,
         brandColor: data.brandColor,
         moniepointKey: data.moniepointKey,
+        moniepointAccountNumber: data.moniepointAccountNumber,
+        moniepointAccountName: data.moniepointAccountName,
+        moniepointBankName: data.moniepointBankName,
         storeSlug: data.storeSlug,
         subscriptionTier: data.selectedPlan || "starter",
         subscriptionStatus: "trialing",

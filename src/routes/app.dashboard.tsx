@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { createFileRoute, Link, useNavigate, useLocation } from "@tanstack/react-router";
-import { Package, CheckCircle2, AlertTriangle, XCircle, ChevronDown, DollarSign, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store, Plus, Send, ClipboardList, Settings as SettingsIcon, LayoutGrid, Search as SearchIcon, History, User, Sprout, Scissors, Sun, Moon } from "lucide-react";
+import { Package, CheckCircle2, AlertTriangle, XCircle, ChevronDown, DollarSign, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store, Plus, Send, ClipboardList, Settings as SettingsIcon, LayoutGrid, Search as SearchIcon, History, User, Sprout, Scissors, Sun, Moon, Globe, Zap, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { NeedsAttention } from "@/components/dashboard/NeedsAttention";
@@ -48,28 +48,62 @@ const TOUR_STEPS: TourStep[] = [
 interface AccordionSectionProps {
   id: string;
   title: string;
-  openSection: string | null;
+  isOpen?: boolean;
   onToggle: (id: string) => void;
   children: React.ReactNode;
   dataTour?: string;
+  badge?: React.ReactNode;
+  icon?: React.ComponentType<{ className?: string }>;
 }
 
-function AccordionSection({ id, title, openSection, onToggle, children, dataTour }: AccordionSectionProps) {
-  const isOpen = openSection === id;
+function AccordionSection({
+  id,
+  title,
+  isOpen = true,
+  onToggle,
+  children,
+  dataTour,
+  badge,
+  icon: Icon,
+}: AccordionSectionProps) {
   return (
-    <div data-tour={dataTour} className="rounded-xl border border-border bg-card shadow-xs overflow-hidden md:shadow-sm">
+    <div
+      data-tour={dataTour}
+      className="rounded-xl border border-border bg-card shadow-xs overflow-hidden transition-all duration-200 md:shadow-sm"
+    >
       <button
         type="button"
         onClick={() => onToggle(id)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/50 md:cursor-default md:hover:bg-transparent"
+        className="flex w-full items-center justify-between px-4 py-3.5 text-left transition-colors hover:bg-muted/50 cursor-pointer select-none"
       >
-        <h2 className="text-sm font-semibold text-foreground md:text-base md:font-bold">{title}</h2>
-        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200 md:hidden", isOpen && "rotate-180")} />
-      </button>
-      <div className={cn("transition-all duration-200 ease-in-out md:max-h-none md:opacity-100 md:block", isOpen ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0 overflow-hidden md:max-h-none md:opacity-100")}>
-        <div className="px-4 pb-4">
-          {children}
+        <div className="flex items-center gap-2.5">
+          {Icon && <Icon className="h-4.5 w-4.5 text-primary flex-shrink-0" />}
+          <h2 className="text-sm font-semibold text-foreground md:text-base md:font-bold">
+            {title}
+          </h2>
+          {badge}
         </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md hidden sm:inline">
+            {isOpen ? "Collapse" : "Expand"}
+          </span>
+          <div className="h-7 w-7 rounded-lg bg-muted/40 hover:bg-muted flex items-center justify-center transition-colors">
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                isOpen && "rotate-180 text-primary"
+              )}
+            />
+          </div>
+        </div>
+      </button>
+      <div
+        className={cn(
+          "transition-all duration-300 ease-in-out overflow-hidden",
+          isOpen ? "max-h-[5000px] opacity-100" : "max-h-0 opacity-0"
+        )}
+      >
+        <div className="px-4 pb-4 pt-1 border-t border-border/40">{children}</div>
       </div>
     </div>
   );
@@ -186,10 +220,46 @@ export function DashboardPage() {
 
   const tour = useOnboarding("dashboard");
   const { startTour } = tour;
-  const [openSection, setOpenSection] = useState<string | null>("metrics");
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    "store-operations": true,
+    "domain-dashboard": true,
+    "quick-actions": true,
+    "metrics": true,
+    "valuation": true,
+    "attention": true,
+    "charts": true,
+    "stock": true,
+    "anomalies": true,
+    "reorder": true,
+    "members": true,
+  });
 
   const toggleSection = (id: string) => {
-    setOpenSection((prev) => (prev === id ? null : id));
+    setOpenSections((prev) => ({
+      ...prev,
+      [id]: !(prev[id] ?? true),
+    }));
+  };
+
+  const allSectionsOpen = useMemo(() => {
+    return Object.values(openSections).every(Boolean);
+  }, [openSections]);
+
+  const toggleAllSections = () => {
+    const nextState = !allSectionsOpen;
+    setOpenSections({
+      "store-operations": nextState,
+      "domain-dashboard": nextState,
+      "quick-actions": nextState,
+      "metrics": nextState,
+      "valuation": nextState,
+      "attention": nextState,
+      "charts": nextState,
+      "stock": nextState,
+      "anomalies": nextState,
+      "reorder": nextState,
+      "members": nextState,
+    });
   };
 
   useEffect(() => {
@@ -223,9 +293,9 @@ export function DashboardPage() {
     if (!tour.isActive) return;
     const step = TOUR_STEPS[tour.currentStep];
     if (step?.target === "needs-attention") {
-      setOpenSection("attention");
+      setOpenSections((prev) => ({ ...prev, attention: true }));
     } else if (step?.target === "metrics") {
-      setOpenSection("metrics");
+      setOpenSections((prev) => ({ ...prev, metrics: true }));
     }
   }, [tour.currentStep, tour.isActive]);
 
@@ -282,6 +352,16 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleAllSections}
+            className="h-9 px-3 text-xs font-semibold gap-1.5 hidden sm:flex"
+            title={allSectionsOpen ? "Collapse All Sections" : "Expand All Sections"}
+          >
+            <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>{allSectionsOpen ? "Collapse All" : "Expand All"}</span>
+          </Button>
           <div className="text-right hidden sm:block">
             <p className="text-sm font-medium text-foreground flex items-center gap-1.5 justify-end">
               <Clock className="h-3.5 w-3.5 text-muted-foreground" />
@@ -330,136 +410,155 @@ export function DashboardPage() {
       </div>
 
       {/* Customized Store Type Dashboard Widget */}
-      <div className="space-y-4">
-        {isWholesaler && (
-          <WholesalerDashboardWidget sales={sales} items={items} customers={customers} creditsList={creditsList} />
-        )}
-        {isRetailer && (
-          <RetailerDashboardWidget sales={sales} items={items} customers={customers} creditsList={creditsList} />
-        )}
-        {isSupermarket && (
-          <SupermarketDashboardWidget sales={sales} items={items} customers={customers} creditsList={creditsList} />
-        )}
-      </div>
+      {(isWholesaler || isRetailer || isSupermarket) && (
+        <AccordionSection
+          id="store-operations"
+          title={
+            isWholesaler
+              ? "Wholesale Depot Operations"
+              : isRetailer
+              ? "Retail POS Operations"
+              : "Supermarket Operations"
+          }
+          icon={Store}
+          isOpen={openSections["store-operations"] ?? true}
+          onToggle={toggleSection}
+          badge={
+            <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30 font-bold px-2 py-0.5">
+              Store Module
+            </Badge>
+          }
+        >
+          {isWholesaler && (
+            <WholesalerDashboardWidget sales={sales} items={items} customers={customers} creditsList={creditsList} />
+          )}
+          {isRetailer && (
+            <RetailerDashboardWidget sales={sales} items={items} customers={customers} creditsList={creditsList} />
+          )}
+          {isSupermarket && (
+            <SupermarketDashboardWidget sales={sales} items={items} customers={customers} creditsList={creditsList} />
+          )}
+        </AccordionSection>
+      )}
 
-      {/* Domain-Specific Visualizations (Primary) */}
-      <div className="space-y-4">
-        {onboarding?.businessType === "agriculture" && (
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-1">
-            <div className="bg-background rounded-[calc(1rem-1px)] p-4 md:p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6">
-                <Sprout className="h-5 w-5 text-green-600" />
-                <h2 className="text-lg font-bold tracking-tight">Agricultural Command Center</h2>
-              </div>
-              <AgricultureDashboard />
-            </div>
-          </div>
-        )}
+      {/* Domain-Specific Visualizations */}
+      {onboarding?.businessType === "agriculture" && (
+        <AccordionSection
+          id="domain-dashboard"
+          title="Agricultural Command Center"
+          icon={Sprout}
+          isOpen={openSections["domain-dashboard"] ?? true}
+          onToggle={toggleSection}
+        >
+          <AgricultureDashboard />
+        </AccordionSection>
+      )}
 
-        {onboarding?.businessType === "pharmacy" && (
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-1">
-            <div className="bg-background rounded-[calc(1rem-1px)] p-4 md:p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6">
-                <ClipboardList className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-bold tracking-tight">Pharmacy Operations</h2>
-              </div>
-              <PharmacyDashboard />
-            </div>
-          </div>
-        )}
+      {onboarding?.businessType === "pharmacy" && (
+        <AccordionSection
+          id="domain-dashboard"
+          title="Pharmacy Operations"
+          icon={ClipboardList}
+          isOpen={openSections["domain-dashboard"] ?? true}
+          onToggle={toggleSection}
+        >
+          <PharmacyDashboard />
+        </AccordionSection>
+      )}
 
-        {onboarding?.businessType === "restaurant" && (
-          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-1">
-            <div className="bg-background rounded-[calc(1rem-1px)] p-4 md:p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6">
-                <History className="h-5 w-5 text-orange-600" />
-                <h2 className="text-lg font-bold tracking-tight">Kitchen & Dining Overview</h2>
-              </div>
-              <RestaurantDashboard />
-            </div>
-          </div>
-        )}
+      {onboarding?.businessType === "restaurant" && (
+        <AccordionSection
+          id="domain-dashboard"
+          title="Kitchen & Dining Overview"
+          icon={History}
+          isOpen={openSections["domain-dashboard"] ?? true}
+          onToggle={toggleSection}
+        >
+          <RestaurantDashboard />
+        </AccordionSection>
+      )}
 
-        {onboarding?.businessType === "manufacturing" && (
-          <div className="rounded-2xl border border-purple-200 bg-purple-50 p-1">
-            <div className="bg-background rounded-[calc(1rem-1px)] p-4 md:p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6">
-                <LayoutGrid className="h-5 w-5 text-purple-600" />
-                <h2 className="text-lg font-bold tracking-tight">Production Floor</h2>
-              </div>
-              <ManufacturingDashboard />
-            </div>
-          </div>
-        )}
+      {onboarding?.businessType === "manufacturing" && (
+        <AccordionSection
+          id="domain-dashboard"
+          title="Production Floor & Manufacturing"
+          icon={LayoutGrid}
+          isOpen={openSections["domain-dashboard"] ?? true}
+          onToggle={toggleSection}
+        >
+          <ManufacturingDashboard />
+        </AccordionSection>
+      )}
 
-        {onboarding?.businessType === "social_commerce" && (
-          <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 p-1">
-            <div className="bg-background rounded-[calc(1rem-1px)] p-4 md:p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                   <Globe className="h-5 w-5 text-fuchsia-600" />
-                   <h2 className="text-lg font-bold tracking-tight">Online Presence</h2>
+      {onboarding?.businessType === "social_commerce" && (
+        <AccordionSection
+          id="domain-dashboard"
+          title="Online Presence & Social Commerce"
+          icon={Globe}
+          isOpen={openSections["domain-dashboard"] ?? true}
+          onToggle={toggleSection}
+        >
+          <SocialCommerceDashboard />
+        </AccordionSection>
+      )}
+
+      {onboarding?.businessType === "textile" && (
+        <AccordionSection
+          id="domain-dashboard"
+          title="Textile Inventory & Fabrics"
+          icon={Scissors}
+          isOpen={openSections["domain-dashboard"] ?? true}
+          onToggle={toggleSection}
+        >
+          <TextileDashboard />
+        </AccordionSection>
+      )}
+
+      {/* Quick Actions Shortcuts */}
+      <AccordionSection
+        id="quick-actions"
+        title="Quick Actions & Shortcuts"
+        icon={Zap}
+        isOpen={openSections["quick-actions"] ?? true}
+        onToggle={toggleSection}
+      >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 pt-1">
+          {isAdmin && (
+            <>
+              <Button variant="outline" className="flex-col h-auto py-4 gap-2 bg-background hover:bg-primary/5 hover:border-primary/50 transition-all shadow-xs" onClick={() => navigate({ to: "/app/catalog" })}>
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Plus className="h-5 w-5 text-primary" />
                 </div>
-                <Button size="sm" variant="outline" asChild>
-                   <a href="/app/ecommerce">Manage Catalog</a>
-                </Button>
-              </div>
-              <SocialCommerceDashboard />
-            </div>
-          </div>
-        )}
-
-        {onboarding?.businessType === "textile" && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-1">
-            <div className="bg-background rounded-[calc(1rem-1px)] p-4 md:p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6">
-                <Scissors className="h-5 w-5 text-rose-600" />
-                <h2 className="text-lg font-bold tracking-tight">Textile Inventory & Fabrics</h2>
-              </div>
-              <TextileDashboard />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Quick Actions (Tertiary) */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {isAdmin && (
-          <>
-            <Button variant="outline" className="flex-col h-auto py-4 gap-2 bg-background hover:bg-primary/5 hover:border-primary/50 transition-all shadow-xs" onClick={() => navigate({ to: "/app/catalog" })}>
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Plus className="h-5 w-5 text-primary" />
-              </div>
-              <span className="text-xs font-bold">Add Product</span>
-            </Button>
-            <Button variant="outline" className="flex-col h-auto py-4 gap-2 bg-background hover:bg-blue-50 hover:border-blue-200 transition-all shadow-xs" onClick={() => navigate({ to: "/app/purchase-orders" })}>
-              <div className="p-2 rounded-lg bg-blue-100">
-                <ClipboardList className="h-5 w-5 text-blue-600" />
-              </div>
-              <span className="text-xs font-bold">New PO</span>
-            </Button>
-            <Button variant="outline" className="flex-col h-auto py-4 gap-2 bg-background hover:bg-purple-50 hover:border-purple-200 transition-all shadow-xs" onClick={() => navigate({ to: "/app/analytics" })}>
-              <div className="p-2 rounded-lg bg-purple-100">
-                <TrendingUp className="h-5 w-5 text-purple-600" />
-              </div>
-              <span className="text-xs font-bold">Analytics</span>
-            </Button>
-            <Button variant="outline" className="flex-col h-auto py-4 gap-2 bg-background hover:bg-green-50 hover:border-green-200 transition-all shadow-xs" onClick={() => navigate({ to: "/app/sales" })}>
-              <div className="p-2 rounded-lg bg-green-100">
-                <ShoppingCart className="h-5 w-5 text-green-600" />
-              </div>
-              <span className="text-xs font-bold">New Sale</span>
-            </Button>
-          </>
-        )}
-        {/* ... (repeat similar patterns for other roles if needed, but keeping it concise for now) */}
-      </div>
+                <span className="text-xs font-bold">Add Product</span>
+              </Button>
+              <Button variant="outline" className="flex-col h-auto py-4 gap-2 bg-background hover:bg-blue-50 hover:border-blue-200 transition-all shadow-xs" onClick={() => navigate({ to: "/app/purchase-orders" })}>
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-950">
+                  <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <span className="text-xs font-bold">New PO</span>
+              </Button>
+              <Button variant="outline" className="flex-col h-auto py-4 gap-2 bg-background hover:bg-purple-50 hover:border-purple-200 transition-all shadow-xs" onClick={() => navigate({ to: "/app/analytics" })}>
+                <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-950">
+                  <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <span className="text-xs font-bold">Analytics</span>
+              </Button>
+              <Button variant="outline" className="flex-col h-auto py-4 gap-2 bg-background hover:bg-green-50 hover:border-green-200 transition-all shadow-xs" onClick={() => navigate({ to: "/app/sales" })}>
+                <div className="p-2 rounded-lg bg-green-100 dark:bg-green-950">
+                  <ShoppingCart className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <span className="text-xs font-bold">New Sale</span>
+              </Button>
+            </>
+          )}
+        </div>
+      </AccordionSection>
 
       {/* ─── Collapsible Sections for Details ─── */}
       <div className="space-y-3">
       {isAdmin && (
         <>
-          <AccordionSection id="metrics" title="Business Overview" openSection={openSection} onToggle={toggleSection} dataTour="metrics">
+          <AccordionSection id="metrics" title="Business Overview" isOpen={openSections["metrics"] ?? true} onToggle={toggleSection} dataTour="metrics">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <button type="button" onClick={() => navigate({ to: "/app/sales-analytics" })} className="text-left group"><MetricCard label="Total Revenue" value={`${NAIRA}${totalRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={DollarSign} /></button>
               <button type="button" onClick={() => navigate({ to: "/app/sales-analytics" })} className="text-left group"><MetricCard label="Net Profit" value={`${NAIRA}${netProfit.toLocaleString("en-NG")}`} accentColor={netProfit >= 0 ? "healthy" : "danger"} icon={netProfit >= 0 ? TrendingUp : TrendingDown} /></button>
@@ -468,7 +567,7 @@ export function DashboardPage() {
             </div>
           </AccordionSection>
 
-          <AccordionSection id="valuation" title="Net Assets & Multi-Branch Valuation" openSection={openSection} onToggle={toggleSection}>
+          <AccordionSection id="valuation" title="Net Assets & Multi-Branch Valuation" isOpen={openSections["valuation"] ?? true} onToggle={toggleSection}>
             <div className="space-y-6">
               {/* Brand Summary Cards */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -592,7 +691,7 @@ export function DashboardPage() {
             </div>
           </AccordionSection>
 
-          <AccordionSection id="attention" title="Alerts & Real-time Activity" openSection={openSection} onToggle={toggleSection} dataTour="needs-attention">
+          <AccordionSection id="attention" title="Alerts & Real-time Activity" isOpen={openSections["attention"] ?? true} onToggle={toggleSection} dataTour="needs-attention">
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
               <div className="min-h-0"><NeedsAttention /></div>
               <div className="min-h-0"><RecentActivity /></div>
@@ -600,14 +699,14 @@ export function DashboardPage() {
           </AccordionSection>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <AccordionSection id="charts" title="Stock Distribution" openSection={openSection} onToggle={toggleSection}>
+            <AccordionSection id="charts" title="Stock Distribution" isOpen={openSections["charts"] ?? true} onToggle={toggleSection}>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <StockStatusDonut />
                 <CategoryDonut />
               </div>
             </AccordionSection>
 
-            <AccordionSection id="stock" title="Inventory Health Summary" openSection={openSection} onToggle={toggleSection}>
+            <AccordionSection id="stock" title="Inventory Health Summary" isOpen={openSections["stock"] ?? true} onToggle={toggleSection}>
               <div className="grid grid-cols-2 gap-2">
                 <MetricCard label="Total SKUs" value={summary.total} accentColor="neutral" icon={Package} />
                 <MetricCard label="In stock" value={summary.inStock} accentColor="healthy" icon={CheckCircle2} />
@@ -617,15 +716,15 @@ export function DashboardPage() {
             </AccordionSection>
           </div>
 
-          <AccordionSection id="anomalies" title="Intelligent Insights (Anomaly Detection)" openSection={openSection} onToggle={toggleSection}>
+          <AccordionSection id="anomalies" title="Intelligent Insights (Anomaly Detection)" isOpen={openSections["anomalies"] ?? true} onToggle={toggleSection}>
             <DashboardAnomalySection movements={movements} items={items} />
           </AccordionSection>
 
-          <AccordionSection id="reorder" title="Operations: Reorder Suggestions" openSection={openSection} onToggle={toggleSection}>
+          <AccordionSection id="reorder" title="Operations: Reorder Suggestions" isOpen={openSections["reorder"] ?? true} onToggle={toggleSection}>
             <DashboardReorderSection items={items} movements={movements} suppliers={suppliers} />
           </AccordionSection>
 
-          <AccordionSection id="members" title={`Store Administration & Members (${members.length})`} openSection={openSection} onToggle={toggleSection}>
+          <AccordionSection id="members" title={`Store Administration & Members (${members.length})`} isOpen={openSections["members"] ?? true} onToggle={toggleSection}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {members.map(member => (
                 <div key={member.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-muted/20">
@@ -656,7 +755,7 @@ export function DashboardPage() {
       {/* ─── Manager Dashboard ─── */}
       {isManager && (
         <>
-          <AccordionSection id="metrics" title="Today's Performance" openSection={openSection} onToggle={toggleSection} dataTour="metrics">
+          <AccordionSection id="metrics" title="Today's Performance" isOpen={openSections["metrics"] ?? true} onToggle={toggleSection} dataTour="metrics">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <button type="button" onClick={() => navigate({ to: "/app/sales-analytics" })} className="text-left"><MetricCard label="Today's Revenue" value={`${NAIRA}${todayRevenue.toLocaleString("en-NG")}`} accentColor="healthy" icon={DollarSign} /></button>
               <button type="button" onClick={() => navigate({ to: "/app/sales-history" })} className="text-left"><MetricCard label="Today's Orders" value={todaySales.length} accentColor="neutral" icon={ShoppingCart} /></button>
@@ -665,21 +764,21 @@ export function DashboardPage() {
             </div>
           </AccordionSection>
 
-          <AccordionSection id="charts" title="Inventory Overview" openSection={openSection} onToggle={toggleSection}>
+          <AccordionSection id="charts" title="Inventory Overview" isOpen={openSections["charts"] ?? true} onToggle={toggleSection}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <StockStatusDonut />
               <CategoryDonut />
             </div>
           </AccordionSection>
 
-          <AccordionSection id="attention" title="Needs Attention" openSection={openSection} onToggle={toggleSection} dataTour="needs-attention">
+          <AccordionSection id="attention" title="Needs Attention" isOpen={openSections["attention"] ?? true} onToggle={toggleSection} dataTour="needs-attention">
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
               <div className="min-h-0"><NeedsAttention /></div>
               <div className="min-h-0"><RecentActivity /></div>
             </div>
           </AccordionSection>
 
-          <AccordionSection id="reorder" title="Reorder Suggestions" openSection={openSection} onToggle={toggleSection}>
+          <AccordionSection id="reorder" title="Reorder Suggestions" isOpen={openSections["reorder"] ?? true} onToggle={toggleSection}>
             <DashboardReorderSection items={items} movements={movements} suppliers={suppliers} />
           </AccordionSection>
         </>
@@ -688,7 +787,7 @@ export function DashboardPage() {
       {/* ─── Requestor fallback ─── */}
       {!isAdmin && !isManager && (
         <>
-          <AccordionSection id="metrics" title="Stock Overview" openSection={openSection} onToggle={toggleSection} dataTour="metrics">
+          <AccordionSection id="metrics" title="Stock Overview" isOpen={openSections["metrics"] ?? true} onToggle={toggleSection} dataTour="metrics">
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
               <MetricCard label="Total SKUs" value={summary.total} accentColor="neutral" icon={Package} />
               <MetricCard label="In stock" value={summary.inStock} accentColor="healthy" icon={CheckCircle2} />

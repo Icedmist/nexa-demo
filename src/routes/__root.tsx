@@ -104,6 +104,10 @@ function NotFoundComponent() {
       window.location.href = "/app/sales";
       return;
     }
+    if (pathname.includes("/agent") || pathname.includes("/agents") || pathname.includes("/app/agent")) {
+      window.location.href = "/agents";
+      return;
+    }
 
     const timer = setInterval(() => {
       setCountdown((prev) => {

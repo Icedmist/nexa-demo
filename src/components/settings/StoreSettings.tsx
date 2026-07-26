@@ -57,6 +57,16 @@ export function StoreSettings() {
   const [moniepointBankName, setMoniepointBankName] = useState(activeSettings.moniepointBankName || "Moniepoint Microfinance Bank");
   const [showMoniepointKey, setShowMoniepointKey] = useState(false);
   const [showMoniepointGuide, setShowMoniepointGuide] = useState(false);
+
+  // Monnify Gateway & Virtual Account Setup
+  const [monnifyApiKey, setMonnifyApiKey] = useState(activeSettings.monnifyApiKey || "");
+  const [monnifySecretKey, setMonnifySecretKey] = useState(activeSettings.monnifySecretKey || "");
+  const [monnifyContractCode, setMonnifyContractCode] = useState(activeSettings.monnifyContractCode || "");
+  const [monnifyAccountNumber, setMonnifyAccountNumber] = useState(activeSettings.monnifyAccountNumber || "5028910423");
+  const [monnifyAccountName, setMonnifyAccountName] = useState(activeSettings.monnifyAccountName || "NexaStoreOS / Monnify Gateway");
+  const [monnifyBankName, setMonnifyBankName] = useState(activeSettings.monnifyBankName || "Moniepoint MFB (Monnify Gateway)");
+  const [showMonnifyApiKey, setShowMonnifyApiKey] = useState(false);
+  const [showMonnifySecretKey, setShowMonnifySecretKey] = useState(false);
   const [storeSlug, setStoreSlug] = useState(activeSettings.storeSlug || "");
   const [pricingMode, setPricingMode] = useState<"single" | "tiered">(activeSettings.pricingMode || "single");
   const [currency, setCurrency] = useState(activeSettings.currency || "NGN");
@@ -92,6 +102,12 @@ export function StoreSettings() {
     setMoniepointAccountNumber(activeSettings.moniepointAccountNumber || "");
     setMoniepointAccountName(activeSettings.moniepointAccountName || "");
     setMoniepointBankName(activeSettings.moniepointBankName || "Moniepoint Microfinance Bank");
+    setMonnifyApiKey(activeSettings.monnifyApiKey || "");
+    setMonnifySecretKey(activeSettings.monnifySecretKey || "");
+    setMonnifyContractCode(activeSettings.monnifyContractCode || "");
+    setMonnifyAccountNumber(activeSettings.monnifyAccountNumber || "5028910423");
+    setMonnifyAccountName(activeSettings.monnifyAccountName || "NexaStoreOS / Monnify Gateway");
+    setMonnifyBankName(activeSettings.monnifyBankName || "Moniepoint MFB (Monnify Gateway)");
     setStoreSlug(activeSettings.storeSlug || "");
     setPricingMode(activeSettings.pricingMode || "single");
     setCurrency(activeSettings.currency || "NGN");
@@ -204,6 +220,13 @@ export function StoreSettings() {
       moniepointAccountNumber: moniepointAccountNumber.trim(),
       moniepointAccountName: moniepointAccountName.trim(),
       moniepointBankName: moniepointBankName.trim() || "Moniepoint Microfinance Bank",
+      monnifyApiKey: monnifyApiKey.trim(),
+      monnifySecretKey: monnifySecretKey.trim(),
+      monnifyContractCode: monnifyContractCode.trim(),
+      monnifyAccountNumber: monnifyAccountNumber.trim(),
+      monnifyAccountName: monnifyAccountName.trim(),
+      monnifyBankName: monnifyBankName.trim() || "Moniepoint MFB (Monnify Gateway)",
+      monnifyStatus: (monnifyApiKey.trim() && monnifySecretKey.trim()) ? "active" : "waiting_for_keys",
       storeSlug: storeSlug.trim(),
       pricingMode: pricingMode,
       currency: currency,
@@ -803,6 +826,142 @@ export function StoreSettings() {
                     placeholder="e.g. Moniepoint Microfinance Bank"
                     className="text-xs"
                   />
+                </div>
+
+                {/* Monnify Gateway & Virtual Account Configuration Card */}
+                <div className="sm:col-span-2 mt-4 p-5 rounded-2xl bg-gradient-to-br from-slate-900/90 to-indigo-950/60 border border-indigo-500/30 space-y-4 text-white shadow-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] uppercase font-bold tracking-wider">
+                          Monnify Gateway Engine
+                        </Badge>
+                        {(!monnifyApiKey || !monnifySecretKey) ? (
+                          <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] font-bold flex items-center gap-1 animate-pulse">
+                            <Clock className="h-3 w-3" /> Waiting for API Setup & Keys
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Monnify Gateway Active
+                          </Badge>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-bold text-white mt-1">Monnify Account Setup & Virtual Account Settlement</h4>
+                      <p className="text-xs text-slate-300">
+                        Collect automated bank transfer payments, generate dynamic POS customer accounts, and receive real-time webhook notifications via Monnify.
+                      </p>
+                    </div>
+                  </div>
+
+                  {(!monnifyApiKey || !monnifySecretKey) && (
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs flex items-start gap-2.5">
+                      <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold block text-amber-300">Monnify Key Exchange Required</span>
+                        Your Monnify virtual account gateway is initialized. Once Monnify issues your production API Key, Secret Key, and Contract Code, enter them below to enable automated 2-second bank transfer verification.
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-slate-200">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="monnify-api-key" className="text-xs font-semibold text-slate-200">
+                        Monnify API Key (MK_PROD_...)
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="monnify-api-key"
+                          type={showMonnifyApiKey ? "text" : "password"}
+                          value={monnifyApiKey}
+                          onChange={(e) => setMonnifyApiKey(e.target.value)}
+                          placeholder="MK_PROD_..."
+                          className="bg-black/40 border-white/10 text-white font-mono text-xs pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowMonnifyApiKey(!showMonnifyApiKey)}
+                          className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
+                        >
+                          {showMonnifyApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="monnify-secret-key" className="text-xs font-semibold text-slate-200">
+                        Monnify Secret Key (SK_PROD_...)
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="monnify-secret-key"
+                          type={showMonnifySecretKey ? "text" : "password"}
+                          value={monnifySecretKey}
+                          onChange={(e) => setMonnifySecretKey(e.target.value)}
+                          placeholder="SK_PROD_..."
+                          className="bg-black/40 border-white/10 text-white font-mono text-xs pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowMonnifySecretKey(!showMonnifySecretKey)}
+                          className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
+                        >
+                          {showMonnifySecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="monnify-contract-code" className="text-xs font-semibold text-slate-200">
+                        Monnify Contract Code
+                      </Label>
+                      <Input
+                        id="monnify-contract-code"
+                        value={monnifyContractCode}
+                        onChange={(e) => setMonnifyContractCode(e.target.value)}
+                        placeholder="e.g. 8923415609"
+                        className="bg-black/40 border-white/10 text-white font-mono text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="monnify-account-number" className="text-xs font-semibold text-slate-200">
+                        Monnify Dedicated Virtual Account
+                      </Label>
+                      <Input
+                        id="monnify-account-number"
+                        value={monnifyAccountNumber}
+                        onChange={(e) => setMonnifyAccountNumber(e.target.value)}
+                        placeholder="5028910423"
+                        className="bg-black/40 border-white/10 text-white font-mono text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="monnify-account-name" className="text-xs font-semibold text-slate-200">
+                        Monnify Account Beneficiary Name
+                      </Label>
+                      <Input
+                        id="monnify-account-name"
+                        value={monnifyAccountName}
+                        onChange={(e) => setMonnifyAccountName(e.target.value)}
+                        placeholder="NexaStoreOS / Monnify Gateway"
+                        className="bg-black/40 border-white/10 text-white text-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="monnify-bank-name" className="text-xs font-semibold text-slate-200">
+                        Settlement Bank
+                      </Label>
+                      <Input
+                        id="monnify-bank-name"
+                        value={monnifyBankName}
+                        onChange={(e) => setMonnifyBankName(e.target.value)}
+                        placeholder="Moniepoint MFB (Monnify Gateway)"
+                        className="bg-black/40 border-white/10 text-white text-xs"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

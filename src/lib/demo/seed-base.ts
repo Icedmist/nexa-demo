@@ -75,6 +75,23 @@ export const getBaseForSector = (sector: string) => {
           { id: "loc-ws-01", name: "Central Depot", type: "warehouse", parentId: null, description: "Bulk storage", address: "", isActive: true, createdAt: ts(120), updatedAt: ts(5) },
         ]
       };
+    case "social_commerce":
+      return {
+        categories: [
+          { id: "fashion", name: "Fashion & Outfits", description: "Trending apparel & streetwear", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box"] },
+          { id: "beauty", name: "Beauty & Skincare", description: "Cosmetics & lip kits", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "bottle", "vial"] },
+          { id: "accessories", name: "Bags & Accessories", description: "Bags, watches, sunglasses", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pair", "box"] },
+          { id: "electronics", name: "Gadgets & Tech", description: "Wireless earbuds, chargers", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box"] },
+          { id: "home", name: "Home & Lifestyle", description: "Decor & aesthetic items", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack"] },
+          { id: "misc", name: "Trending Deals", description: "Flash sales & promo items", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs"] },
+        ],
+        suppliers: [
+          { id: "sup-sc-01", name: "Global Trendy Imports", contactName: "Grace Chen", email: "grace@trendyimports.com", phone: "08099112233", address: "Trade Fair Complex, Lagos", leadTimeDays: 3, rating: 4.8, isActive: true, createdAt: ts(120), updatedAt: ts(10) },
+        ],
+        locations: [
+          { id: "loc-sc-01", name: "Social Vendor Studio", type: "warehouse", parentId: null, description: "Main fulfillment center", address: "", isActive: true, createdAt: ts(120), updatedAt: ts(5) },
+        ]
+      };
     case "general":
     default:
       return {

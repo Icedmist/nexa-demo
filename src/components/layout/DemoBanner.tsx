@@ -20,6 +20,7 @@ const roles: { value: UserRoleType | "requestor"; label: string }[] = [
 
 const SECTORS = [
   { value: "general", label: "General Retail", icon: "🛒" },
+  { value: "social_commerce", label: "Online Vendor", icon: "📲" },
   { value: "pharmacy", label: "Pharmacy Hub", icon: "💊" },
   { value: "restaurant", label: "Kitchen Console", icon: "🥘" },
   { value: "electronics", label: "Phone Accessories", icon: "📱" },

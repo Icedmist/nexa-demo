@@ -21,6 +21,7 @@ const SECTOR_LABELS: Record<string, string> = {
   agriculture: "Agribusiness",
   pharmacy: "Pharmacy Hub",
   restaurant: "Food & Restaurant",
+  social_commerce: "Online Vendor",
   general: "General Retail",
 };
 
@@ -488,6 +489,7 @@ function SuperAdminStores() {
                 <option value="agriculture">Agribusiness / Agri-supply</option>
                 <option value="pharmacy">Pharmacy / Healthcare Retail</option>
                 <option value="restaurant">Food & Restaurant Service</option>
+                <option value="social_commerce">Online Vendor (Social Commerce)</option>
                 <option value="electronics">Phones & Accessories</option>
                 <option value="retail">Retail / POS</option>
                 <option value="general">General Retail Store</option>
@@ -568,6 +570,7 @@ function SuperAdminStores() {
                 <option value="agriculture">Agribusiness / Agri-supply</option>
                 <option value="pharmacy">Pharmacy / Healthcare Retail</option>
                 <option value="restaurant">Food & Restaurant Service</option>
+                <option value="social_commerce">Online Vendor (Social Commerce)</option>
                 <option value="electronics">Phones & Accessories</option>
                 <option value="retail">Retail / POS</option>
                 <option value="general">General Retail Store</option>

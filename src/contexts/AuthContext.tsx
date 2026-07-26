@@ -12,6 +12,7 @@ import {
 import { doc, getDoc, setDoc, onSnapshot, collection, query, where, getDocs, limit, deleteDoc, writeBatch } from "firebase/firestore";
 import { auth, db, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { toast } from "sonner";
+import { CompanyPreloader } from "@/components/shared/CompanyPreloader";
 
 interface UserProfile {
   id: string;
@@ -35,6 +36,9 @@ interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  isPreloading: boolean;
+  preloaderMessage: string;
+  triggerPreloader: (message?: string, durationMs?: number) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -50,6 +54,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPreloading, setIsPreloading] = useState(false);
+  const [preloaderMessage, setPreloaderMessage] = useState("Welcome to Nexa OS");
+
+  const triggerPreloader = (message = "Welcome to Nexa OS", durationMs = 1200): Promise<void> => {
+    setPreloaderMessage(message);
+    setIsPreloading(true);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        setIsPreloading(false);
+        resolve();
+      }, durationMs);
+    });
+  };
 
   useEffect(() => {
     let unsubProfile: (() => void) | null = null;
@@ -474,7 +491,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, register, logout, updateProfileName, updateProfileDescription, sendPasswordReset, updateUserPassword }}>
+    <AuthContext.Provider value={{ user, profile, loading, isPreloading, preloaderMessage, triggerPreloader, login, register, logout, updateProfileName, updateProfileDescription, sendPasswordReset, updateUserPassword }}>
+      <CompanyPreloader
+        show={isPreloading}
+        message={preloaderMessage}
+        logoUrl={profile?.onboarding?.logoUrl as string | undefined}
+      />
       {children}
     </AuthContext.Provider>
   );

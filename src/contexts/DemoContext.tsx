@@ -152,6 +152,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
         else if (updates.businessType === "retail") cats = ["electronics", "fashion", "groceries", "beauty", "home", "sports"];
         else if (updates.businessType === "textile") cats = ["cotton", "laces", "silk", "sewing", "traditional", "prints"];
         else if (updates.businessType === "wholesale") cats = ["fmcg", "building", "agro", "industrial", "textiles", "chemicals"];
+        else if (updates.businessType === "social_commerce") cats = ["fashion", "beauty", "accessories", "electronics", "home", "misc"];
         else cats = ["office", "tools", "it", "medical", "cleaning", "misc"];
         
         const newStore = new DemoStore(updates.businessType, cats);

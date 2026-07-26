@@ -23,7 +23,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalProps) {
-  const { login, register, sendPasswordReset } = useAuth();
+  const { login, register, sendPasswordReset, triggerPreloader } = useAuth();
   const { enterDemoMode } = useDemo();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -102,6 +102,11 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
         }
       }
       onClose();
+      await triggerPreloader(
+        tab === "login" ? "Signing in to your store..." : "Creating your account...",
+        1200
+      );
+      navigate({ to: "/app/dashboard" });
     } catch (error: unknown) {
       // Try to extract code/message from various error formats
       const errObj = error as { code?: string; message?: string };
@@ -163,7 +168,7 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
     }
   };
 
-  const handleDemoBypass = () => {
+  const handleDemoBypass = async () => {
     enterDemoMode({
       businessType: "retail",
       categories: ["Apparel", "Electronics", "Groceries"],
@@ -177,6 +182,7 @@ export function AuthModal({ isOpen, onClose, defaultTab = "login" }: AuthModalPr
     localStorage.setItem("stackwise-onboarding-done", "true");
     toast.success("Demo session initialized locally!");
     onClose();
+    await triggerPreloader("Launching Nexa OS Demo Workspace...", 1200);
     navigate({ to: "/app/dashboard" });
   };
 

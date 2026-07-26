@@ -229,7 +229,7 @@ function SimulatorPriceInput({
 
 function LandingPage() {
   const { enterDemoMode } = useDemo();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, isPreloading } = useAuth();
   const { settings } = useSystemSettings();
   const navigate = useNavigate();
   const { handleOptionRoute } = useOnboardingNavigation();
@@ -562,7 +562,7 @@ function LandingPage() {
   }, []);
 
   useEffect(() => {
-    if (user && !authLoading) {
+    if (user && !authLoading && !isPreloading) {
       if (profile?.role === "super_admin" || user.email?.includes("superadmin")) {
         navigate({ to: "/app/super-admin" });
       } else if (profile?.storeId) {
@@ -583,7 +583,7 @@ function LandingPage() {
         navigate({ to: "/app/dashboard" });
       }
     }
-  }, [user, profile, authLoading, navigate]);
+  }, [user, profile, authLoading, isPreloading, navigate]);
 
   const handleGetStarted = (type?: string) => {
     if (!invitedStore) {

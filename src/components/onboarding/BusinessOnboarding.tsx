@@ -194,6 +194,9 @@ interface BusinessOnboardingProps {
     storeName: string;
     brandColor: string;
     moniepointKey?: string;
+    moniepointAccountNumber?: string;
+    moniepointAccountName?: string;
+    moniepointBankName?: string;
     storeSlug?: string;
     electronicsMainType?: "devices" | "accessories" | "both";
     textilePrimarilySellsBy?: "yard" | "roll" | "both";
@@ -214,6 +217,8 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
   const [selectedPlan, setSelectedPlan] = useState<"starter" | "professional" | "enterprise">("starter");
   const [moniepointKey, setMoniepointKey] = useState("");
   const [showMoniepointKey, setShowMoniepointKey] = useState(false);
+  const [moniepointAccountNumber, setMoniepointAccountNumber] = useState("5028910423");
+  const [moniepointAccountName, setMoniepointAccountName] = useState("");
   const [storeSlug, setStoreSlug] = useState("");
   const [brandColor, setBrandColor] = useState("#0d9488");
   const [selectedBusiness, setSelectedBusiness] = useState<string | null>(null);
@@ -345,6 +350,9 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
         storeName: storeName.trim() || "My Store", 
         brandColor,
         moniepointKey,
+        moniepointAccountNumber: moniepointAccountNumber || "5028910423",
+        moniepointAccountName: moniepointAccountName || `${storeName.trim() || "My Store"} Operations`,
+        moniepointBankName: "Moniepoint Microfinance Bank",
         storeSlug,
         selectedPlan,
         electronicsMainType: selectedBusiness === "electronics" ? electronicsMainType : undefined,
@@ -625,6 +633,27 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Moniepoint Account Number</Label>
+                    <Input 
+                      value={moniepointAccountNumber}
+                      onChange={e => setMoniepointAccountNumber(e.target.value)}
+                      placeholder="5028910423"
+                      className="h-9 font-mono font-bold"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Account Name</Label>
+                    <Input 
+                      value={moniepointAccountName || `${storeName || "My Store"} Operations`}
+                      onChange={e => setMoniepointAccountName(e.target.value)}
+                      placeholder="e.g. Store Operations"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                    <Label className="text-sm font-medium">Moniepoint API Key (Optional)</Label>
                    <div className="relative">
@@ -644,7 +673,7 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
                        {showMoniepointKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                      </button>
                    </div>
-                   <p className="text-[11px] text-muted-foreground italic">You can add this later in settings to enable automated payments.</p>
+                   <p className="text-[11px] text-muted-foreground italic">Your customers will transfer directly to this account at webshop checkout.</p>
                 </div>
               </div>
 

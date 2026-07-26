@@ -327,6 +327,19 @@ export const getItemsForSector = (sector: string): Item[] => {
         { ...item(9, "Bulk Cotton Rolls", "textiles", "sup-ws-01", "loc-ws-01", 40, 5, 45000, 65000, "roll", "count", "🧵") },
         { ...item(10, "Industrial Cleaning Acid", "chemicals", "sup-ws-01", "loc-ws-01", 24, 4, 12000, 19500, "keg", "volume", "🧪") },
       ];
+    case "social_commerce":
+      return [
+        { ...item(1, "Vintage Denim Oversized Jacket", "fashion", "sup-sc-01", "loc-sc-01", 35, 5, 8500, 16500, "pcs", "count", "🧥") },
+        { ...item(2, "Velvet Matte Lip Kit (3-in-1)", "beauty", "sup-sc-01", "loc-sc-01", 60, 10, 2500, 6800, "pcs", "count", "💄") },
+        { ...item(3, "Mini Crossbody Leather Bag", "accessories", "sup-sc-01", "loc-sc-01", 28, 5, 5000, 12500, "pcs", "count", "👜") },
+        { ...item(4, "TWS Wireless Bluetooth Earbuds", "electronics", "sup-sc-01", "loc-sc-01", 45, 8, 4200, 9500, "pcs", "count", "🎧") },
+        { ...item(5, "Aesthetic Sunset Atmosphere Lamp", "home", "sup-sc-01", "loc-sc-01", 20, 5, 3500, 8000, "pcs", "count", "🌅") },
+        { ...item(6, "Gold-Plated Minimalist Wristwatch", "accessories", "sup-sc-01", "loc-sc-01", 18, 4, 6000, 14500, "pcs", "count", "⌚") },
+        { ...item(7, "Silk Satin Nightwear Set", "fashion", "sup-sc-01", "loc-sc-01", 40, 8, 4500, 10500, "pcs", "count", "👗") },
+        { ...item(8, "Organic Glow Vitamin C Serum", "beauty", "sup-sc-01", "loc-sc-01", 50, 10, 2200, 5500, "pcs", "count", "✨") },
+        { ...item(9, "MagSafe Magnetic Power Bank 10,000mAh", "electronics", "sup-sc-01", "loc-sc-01", 30, 6, 7500, 15000, "pcs", "count", "🔋") },
+        { ...item(10, "Designer Polarized Sunglasses", "accessories", "sup-sc-01", "loc-sc-01", 25, 5, 3000, 7500, "pcs", "count", "🕶️") },
+      ];
     case "general":
     default:
       return [

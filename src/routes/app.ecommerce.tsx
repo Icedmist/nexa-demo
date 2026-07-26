@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Globe, Link2, Share2, Copy, ExternalLink, QrCode, Landmark, Layers, ShieldAlert, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { Globe, Link2, Share2, Copy, ExternalLink, QrCode, Landmark, Layers, ShieldAlert, Sparkles, Building2, Check, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useItems } from "@/hooks/useInventoryData";
@@ -8,6 +9,9 @@ import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { Badge } from "@/components/ui/badge";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { getStorefrontUrl, getCleanStoreSlug } from "@/lib/utils";
+import { InStoreQrModal } from "@/components/store/InStoreQrModal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { QRCodeSVG } from "qrcode.react";
 
 export const Route = createFileRoute("/app/ecommerce")({
   component: EcommercePage,
@@ -18,6 +22,9 @@ function EcommercePage() {
   const ecommerceItems = items.filter(i => i.isEcommerceEnabled);
   const { settings } = useSystemSettings();
   const { flags } = useFeatureFlags();
+
+  const [inStoreQrOpen, setInStoreQrOpen] = useState(false);
+  const [activeProductQr, setActiveProductQr] = useState<{ id: string; name: string; price: number } | null>(null);
 
   const storeSlug = getCleanStoreSlug(settings.storeSlug, settings.storeName);
   const storeUrl = getStorefrontUrl(storeSlug);
@@ -45,29 +52,59 @@ function EcommercePage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Digital Storefront</h1>
-          <p className="text-muted-foreground max-w-sm">Manage your social commerce settings and product share links.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Digital Storefront & In-Store QR</h1>
+          <p className="text-muted-foreground max-w-md">Manage catalog share links, in-store table QR flyers, and customer payment account details.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-           {settings.moniepointKey ? (
-             <Badge variant="outline" className="gap-1.5 py-1.5 px-3 border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400">
-               <Landmark className="h-3.5 w-3.5" /> Moniepoint Live
-             </Badge>
-           ) : (
-             <Badge variant="outline" className="gap-1.5 py-1.5 px-3 border-amber-500/30 bg-amber-500/5 text-amber-600">
-               <Landmark className="h-3.5 w-3.5" /> Setup Moniepoint
-             </Badge>
-           )}
-          <Button variant="outline" onClick={shareBulk} className="gap-2">
-            <Share2 className="h-4 w-4" /> Share Store
-          </Button>
-          <Button className="gap-2" asChild>
-            <a href={storeUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-4 w-4" /> Go to Webshop
-            </a>
-          </Button>
+           <Button
+             variant="default"
+             onClick={() => setInStoreQrOpen(true)}
+             className="gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-bold shadow-md shadow-teal-500/20"
+           >
+             <QrCode className="h-4 w-4" /> In-Store Table QR Standee
+           </Button>
+           <Button variant="outline" onClick={shareBulk} className="gap-2">
+             <Share2 className="h-4 w-4" /> Share Store
+           </Button>
+           <Button variant="outline" className="gap-2" asChild>
+             <a href={storeUrl} target="_blank" rel="noopener noreferrer">
+               <ExternalLink className="h-4 w-4" /> Go to Webshop
+             </a>
+           </Button>
         </div>
       </div>
+
+      {/* Bank Account Details Banner for Store Checkout */}
+      <Card className="border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 shadow-none rounded-2xl">
+        <CardContent className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Landmark className="h-3 w-3" /> Checkout Payment Account
+              </span>
+              <Badge variant="outline" className="border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[10px]">
+                Active for In-Store & Online Checkout
+              </Badge>
+            </div>
+            <h3 className="text-sm font-bold text-foreground">
+              {settings.moniepointBankName || "Moniepoint Microfinance Bank"} — <span className="font-mono text-primary font-extrabold">{settings.moniepointAccountNumber || "5028910423"}</span>
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Account Name: <span className="font-semibold text-foreground">{settings.moniepointAccountName || `${settings.storeName || "Nexa OS Store"} Main Operations`}</span>. Front-store buyers copy this account directly during checkout.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.location.href = "/app/settings";
+            }}
+            className="text-xs font-bold border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 h-9"
+          >
+            Edit Account Details
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* B2B Marketplace Banner Section */}
       <Card className="border border-sky-500/10 bg-gradient-to-r from-sky-500/5 to-primary/5 shadow-none rounded-xl">
@@ -132,7 +169,12 @@ function EcommercePage() {
                   <Button variant="outline" size="sm" className="flex-1 gap-1" onClick={() => copyLink(item.id)}>
                     <Copy className="h-3 w-3" /> Link
                   </Button>
-                  <Button variant="outline" size="sm" className="flex-1 gap-1">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 gap-1"
+                    onClick={() => setActiveProductQr({ id: item.id, name: item.name, price: item.sellingPrice })}
+                  >
                     <QrCode className="h-3 w-3" /> QR
                   </Button>
                   <Button size="sm" className="bg-green-600 hover:bg-green-700 gap-1" onClick={() => shareWhatsApp(item)}>
@@ -143,6 +185,56 @@ function EcommercePage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* In-Store Standee & Table QR Modal */}
+      <InStoreQrModal
+        isOpen={inStoreQrOpen}
+        onClose={() => setInStoreQrOpen(false)}
+        storeName={settings.storeName || "Nexa OS Store"}
+        storeSlug={storeSlug}
+        logoUrl={settings.logoUrl}
+        bankName={settings.moniepointBankName}
+        accountNumber={settings.moniepointAccountNumber}
+      />
+
+      {/* Product QR Dialog */}
+      {activeProductQr && (
+        <Dialog open={!!activeProductQr} onOpenChange={(open) => !open && setActiveProductQr(null)}>
+          <DialogContent className="max-w-sm bg-card border-border text-center p-6 rounded-3xl">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold">{activeProductQr.name}</DialogTitle>
+              <p className="text-xs text-primary font-bold">₦{activeProductQr.price.toLocaleString()}</p>
+            </DialogHeader>
+            <div className="my-4 flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-border shadow-inner">
+              <QRCodeSVG
+                value={getStorefrontUrl(storeSlug, `?product=${activeProductQr.id}`)}
+                size={180}
+                level="M"
+                includeMargin={true}
+              />
+              <p className="text-[10px] text-slate-500 font-mono mt-2">Scan to view item in catalog</p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1 text-xs font-bold gap-1.5"
+                onClick={() => {
+                  navigator.clipboard.writeText(getStorefrontUrl(storeSlug, `?product=${activeProductQr.id}`));
+                  toast.success("Product QR link copied!");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5" /> Copy Link
+              </Button>
+              <Button
+                className="flex-1 text-xs font-bold gap-1.5"
+                onClick={() => window.print()}
+              >
+                <Printer className="h-3.5 w-3.5" /> Print QR
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

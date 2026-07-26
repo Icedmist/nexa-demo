@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { auth, db } from "@/lib/firebase";
 import { 
   signInWithEmailAndPassword, 
@@ -160,6 +161,7 @@ const NIGERIAN_BANKS = [
 
 export function AgentsPage() {
   const navigate = useNavigate();
+  const { triggerPreloader } = useAuth();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [agentProfile, setAgentProfile] = useState<AgentProfile | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -589,6 +591,7 @@ export function AgentsPage() {
       const userCred = await signInWithEmailAndPassword(auth, cleanEmail, passwordInput);
       toast.success(`Welcome back, ${userCred.user.displayName || cleanEmail.split("@")[0]}!`);
       setShowAuthModal(false);
+      await triggerPreloader("Signing in to Agent Partner Portal...", 1200);
     } catch (err: unknown) {
       const errObj = err as { code?: string; message?: string };
       const code = errObj?.code || "";
@@ -703,6 +706,7 @@ export function AgentsPage() {
 
       toast.success("Agent account created successfully! Welcome to your workspace.");
       setShowAuthModal(false);
+      await triggerPreloader("Setting up your Agent Partner Workspace...", 1200);
     } catch (err: unknown) {
       const errObj = err as { code?: string; message?: string };
       if (errObj?.code === "auth/email-already-in-use") {
@@ -1975,6 +1979,40 @@ export function AgentsPage() {
                 </button>
               </div>
 
+              {/* MONNIFY AGENT SETTLEMENT STATUS BAR */}
+              <div className="bg-gradient-to-r from-emerald-950/80 via-[#141528] to-indigo-950/80 border border-emerald-500/30 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500/20 text-[#4DE89A] rounded-xl shrink-0">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-sm">Monnify Agent Direct Payout & Deposit Settlement Engine</span>
+                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] font-mono uppercase animate-pulse">
+                        Waiting for API Setup & Keys
+                      </Badge>
+                    </div>
+                    <p className="text-slate-300 text-[11px] mt-0.5">
+                      Your growth partner account is tied to Monnify Automated Disbursements. Commissions and field logistics allowances auto-disburse directly to your bank account upon live Monnify key binding.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                  <span className="text-[10px] font-mono text-slate-400 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
+                    Bank Ref: Monnify-Awaiting-Keys
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowClaimPayoutModal(true)}
+                    className="h-8 text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-[#4DE89A] border-emerald-500/40 gap-1.5"
+                  >
+                    <Wallet className="h-3.5 w-3.5" /> Payout Settings
+                  </Button>
+                </div>
+              </div>
+
           {/* KPI CARDS */}
           <div className="grid gap-4 md:grid-cols-4 sm:grid-cols-2">
             <Card className="bg-[#141528] border border-white/10 p-5 flex items-center justify-between rounded-2xl text-white">
@@ -2711,46 +2749,85 @@ export function AgentsPage() {
         )}
       </AnimatePresence>
 
-      {/* AGENT FUNCTIONAL MODALS */}
-      {agentProfile && (
-        <>
-          <OnboardMerchantModal
-            isOpen={showOnboardModal}
-            onClose={() => setShowOnboardModal(false)}
-            agentId={agentProfile.agentId}
-            agentCode={agentProfile.referralCode}
-            agentName={agentProfile.fullName}
-          />
+      {/* AGENT FUNCTIONAL MODALS & DEMO PASS */}
+      {(() => {
+        const effectiveAgent = agentProfile || {
+          agentId: "NEXA-DEMO-AGENT",
+          fullName: "Nexa Growth Partner",
+          email: currentUser?.email || "agent.demo@nexa.ng",
+          phone: "090-380-26109",
+          region: "Taraba State (Jalingo)",
+          referralCode: "NEXADEMO",
+          referralLink: `${window.location.origin}/?ref=NEXADEMO`,
+          status: "approved",
+          commissionRulesApplied: "default_v1",
+          earnings: { pending: 15000, paid: 45000, reversed: 0 },
+          createdAt: new Date().toISOString()
+        };
 
-          <ClaimPayoutModal
-            isOpen={showClaimPayoutModal}
-            onClose={() => setShowClaimPayoutModal(false)}
-            agentId={agentProfile.agentId}
-            agentName={agentProfile.fullName}
-            agentBank={agentProfile.bank || ""}
-            agentAccount={agentProfile.accountNumber || ""}
-            agentAccountName={agentProfile.accountName || agentProfile.fullName}
-            clearedEarnings={agentProfile.earnings?.paid || 0}
-            pendingEarnings={agentProfile.earnings?.pending || 0}
-          />
+        return (
+          <>
+            <OnboardMerchantModal
+              isOpen={showOnboardModal}
+              onClose={() => setShowOnboardModal(false)}
+              agentId={effectiveAgent.agentId}
+              agentUid={currentUser?.uid || "demo-uid"}
+              referralCode={effectiveAgent.referralCode}
+              agentCode={effectiveAgent.referralCode}
+              agentName={effectiveAgent.fullName}
+            />
 
-          <AgentQrFlyerModal
-            isOpen={showQrFlyerModal}
-            onClose={() => setShowQrFlyerModal(false)}
-            agentName={agentProfile.fullName}
-            agentCode={agentProfile.referralCode}
-            referralLink={agentProfile.referralLink}
-          />
+            <ClaimPayoutModal
+              isOpen={showClaimPayoutModal}
+              onClose={() => setShowClaimPayoutModal(false)}
+              agentUid={currentUser?.uid || "demo-uid"}
+              agentId={effectiveAgent.agentId}
+              agentName={effectiveAgent.fullName}
+              bankName={effectiveAgent.bank || "Access Bank"}
+              accountNumber={effectiveAgent.accountNumber || "0123456789"}
+              accountName={effectiveAgent.accountName || effectiveAgent.fullName}
+              pendingBalance={effectiveAgent.earnings?.pending || 15000}
+            />
 
-          <LogVisitModal
-            isOpen={!!selectedVisitStore}
-            onClose={() => setSelectedVisitStore(null)}
-            agentId={agentProfile.agentId}
-            agentName={agentProfile.fullName}
-            store={selectedVisitStore}
-          />
-        </>
-      )}
+            <AgentQrFlyerModal
+              isOpen={showQrFlyerModal}
+              onClose={() => setShowQrFlyerModal(false)}
+              agentName={effectiveAgent.fullName}
+              agentCode={effectiveAgent.referralCode}
+              agentPhone={effectiveAgent.phone || "090-380-26109"}
+              agentRegion={effectiveAgent.region || "Taraba State"}
+              referralLink={effectiveAgent.referralLink}
+            />
+
+            <LogVisitModal
+              isOpen={!!selectedVisitStore}
+              onClose={() => setSelectedVisitStore(null)}
+              agentUid={currentUser?.uid || "demo-uid"}
+              agentId={effectiveAgent.agentId}
+              agentName={effectiveAgent.fullName}
+              store={selectedVisitStore}
+            />
+
+            <AnimatePresence>
+              {showAgentDemoModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="w-full max-w-xl my-8 relative z-10"
+                  >
+                    <DemoPassGeneratorModal
+                      defaultAgentName={effectiveAgent.fullName}
+                      onClose={() => setShowAgentDemoModal(false)}
+                    />
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
+          </>
+        );
+      })()}
 
     </div>
   );
