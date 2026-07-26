@@ -197,6 +197,11 @@ interface BusinessOnboardingProps {
     moniepointAccountNumber?: string;
     moniepointAccountName?: string;
     moniepointBankName?: string;
+    paystackPublicKey?: string;
+    paystackSecretKey?: string;
+    paystackAccountNumber?: string;
+    paystackAccountName?: string;
+    paystackBankName?: string;
     storeSlug?: string;
     electronicsMainType?: "devices" | "accessories" | "both";
     textilePrimarilySellsBy?: "yard" | "roll" | "both";
@@ -215,10 +220,11 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
   const [step, setStep] = useState(0);
   const [storeName, setStoreName] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<"starter" | "professional" | "enterprise">("starter");
-  const [moniepointKey, setMoniepointKey] = useState("");
-  const [showMoniepointKey, setShowMoniepointKey] = useState(false);
-  const [moniepointAccountNumber, setMoniepointAccountNumber] = useState("5028910423");
-  const [moniepointAccountName, setMoniepointAccountName] = useState("");
+  const [paystackSecretKey, setPaystackSecretKey] = useState("");
+  const [paystackPublicKey, setPaystackPublicKey] = useState("");
+  const [showPaystackSecretKey, setShowPaystackSecretKey] = useState(false);
+  const [paystackAccountNumber, setPaystackAccountNumber] = useState("5028910423");
+  const [paystackAccountName, setPaystackAccountName] = useState("");
   const [storeSlug, setStoreSlug] = useState("");
   const [brandColor, setBrandColor] = useState("#0d9488");
   const [selectedBusiness, setSelectedBusiness] = useState<string | null>(null);
@@ -349,10 +355,15 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
         categories: Array.from(selectedCategories), 
         storeName: storeName.trim() || "My Store", 
         brandColor,
-        moniepointKey,
-        moniepointAccountNumber: moniepointAccountNumber || "5028910423",
-        moniepointAccountName: moniepointAccountName || `${storeName.trim() || "My Store"} Operations`,
-        moniepointBankName: "Moniepoint Microfinance Bank",
+        moniepointKey: paystackSecretKey,
+        moniepointAccountNumber: paystackAccountNumber || "5028910423",
+        moniepointAccountName: paystackAccountName || `${storeName.trim() || "My Store"} Operations`,
+        moniepointBankName: "Wema Bank / Titan Paystack",
+        paystackPublicKey,
+        paystackSecretKey,
+        paystackAccountNumber: paystackAccountNumber || "5028910423",
+        paystackAccountName: paystackAccountName || `${storeName.trim() || "My Store"} Operations`,
+        paystackBankName: "Wema Bank / Titan Paystack",
         storeSlug,
         selectedPlan,
         electronicsMainType: selectedBusiness === "electronics" ? electronicsMainType : undefined,
@@ -635,19 +646,19 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Moniepoint Account Number</Label>
+                    <Label className="text-xs font-semibold">Paystack Account Number</Label>
                     <Input 
-                      value={moniepointAccountNumber}
-                      onChange={e => setMoniepointAccountNumber(e.target.value)}
+                      value={paystackAccountNumber}
+                      onChange={e => setPaystackAccountNumber(e.target.value)}
                       placeholder="5028910423"
                       className="h-9 font-mono font-bold"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold">Account Name</Label>
+                    <Label className="text-xs font-semibold">Account Beneficiary Name</Label>
                     <Input 
-                      value={moniepointAccountName || `${storeName || "My Store"} Operations`}
-                      onChange={e => setMoniepointAccountName(e.target.value)}
+                      value={paystackAccountName || `${storeName || "My Store"} Operations`}
+                      onChange={e => setPaystackAccountName(e.target.value)}
                       placeholder="e.g. Store Operations"
                       className="h-9"
                     />
@@ -655,25 +666,25 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
                 </div>
 
                 <div className="space-y-2">
-                   <Label className="text-sm font-medium">Moniepoint API Key (Optional)</Label>
+                   <Label className="text-sm font-medium">Paystack Secret Key (Optional)</Label>
                    <div className="relative">
                      <Input 
-                        type={showMoniepointKey ? "text" : "password"}
-                        value={moniepointKey}
-                        onChange={e => setMoniepointKey(e.target.value)}
+                        type={showPaystackSecretKey ? "text" : "password"}
+                        value={paystackSecretKey}
+                        onChange={e => setPaystackSecretKey(e.target.value)}
                         placeholder="sk_live_..."
                         className="h-10 pr-10"
                      />
                      <button
                        type="button"
-                       onClick={() => setShowMoniepointKey(!showMoniepointKey)}
+                       onClick={() => setShowPaystackSecretKey(!showPaystackSecretKey)}
                        className="absolute right-3 top-3 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
-                       aria-label={showMoniepointKey ? "Hide API key" : "Show API key"}
+                       aria-label={showPaystackSecretKey ? "Hide API key" : "Show API key"}
                      >
-                       {showMoniepointKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                       {showPaystackSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                      </button>
                    </div>
-                   <p className="text-[11px] text-muted-foreground italic">Your customers will transfer directly to this account at webshop checkout.</p>
+                   <p className="text-[11px] text-muted-foreground italic">Your customers will transfer or pay directly using Paystack at checkout.</p>
                 </div>
               </div>
 

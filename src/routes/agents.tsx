@@ -1979,7 +1979,7 @@ export function AgentsPage() {
                 </button>
               </div>
 
-              {/* MONNIFY AGENT SETTLEMENT STATUS BAR */}
+              {/* PAYSTACK AGENT SETTLEMENT STATUS BAR */}
               <div className="bg-gradient-to-r from-emerald-950/80 via-[#141528] to-indigo-950/80 border border-emerald-500/30 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-emerald-500/20 text-[#4DE89A] rounded-xl shrink-0">
@@ -1987,20 +1987,20 @@ export function AgentsPage() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-sm">Monnify Agent Direct Payout & Deposit Settlement Engine</span>
-                      <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] font-mono uppercase animate-pulse">
-                        Waiting for API Setup & Keys
+                      <span className="font-bold text-white text-sm">Paystack Agent Direct Payout & Deposit Settlement Engine</span>
+                      <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px] font-mono uppercase">
+                        Paystack Active
                       </Badge>
                     </div>
                     <p className="text-slate-300 text-[11px] mt-0.5">
-                      Your growth partner account is tied to Monnify Automated Disbursements. Commissions and field logistics allowances auto-disburse directly to your bank account upon live Monnify key binding.
+                      Your growth partner account is tied to Paystack Automated Transfers. Commissions and field logistics allowances auto-disburse directly to your bank account via Paystack.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                   <span className="text-[10px] font-mono text-slate-400 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10">
-                    Bank Ref: Monnify-Awaiting-Keys
+                    Bank Ref: Paystack-Direct-Active
                   </span>
                   <Button
                     size="sm"

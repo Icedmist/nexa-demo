@@ -83,17 +83,17 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
   const storeId = settings?.id || "STORE";
   const refCode = `NEXA-${storeId.slice(-6).toUpperCase()}-${targetTier.toUpperCase()}`;
 
-  const monnifyBankDetails = {
-    bankName: "Moniepoint MFB (Monnify Gateway)",
+  const paystackBankDetails = {
+    bankName: "Wema Bank / Titan Paystack",
     accountNumber: "7034928104",
-    accountName: "NexaStoreOS / Monnify Gateway",
+    accountName: "NexaStoreOS / Paystack Gateway",
     reference: refCode
   };
 
   const handleCopyAccount = () => {
-    navigator.clipboard.writeText(monnifyBankDetails.accountNumber);
+    navigator.clipboard.writeText(paystackBankDetails.accountNumber);
     setCopied(true);
-    toast.success("Monnify account number copied to clipboard!");
+    toast.success("Paystack account number copied to clipboard!");
     setTimeout(() => setCopied(false), 3000);
   };
 
@@ -117,7 +117,7 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
         payerName: payerName.trim(),
         payerPhone: payerPhone.trim(),
         transactionRef: transactionRef.trim() || "N/A",
-        notes: notes.trim() || "Bank transfer completed via Monnify",
+        notes: notes.trim() || "Bank transfer completed via Paystack",
         bankReference: refCode,
         status: "pending_verification",
         createdAt: new Date().toISOString()
@@ -162,28 +162,28 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
               <DialogHeader className="text-left">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 uppercase text-[10px] font-bold tracking-widest">
-                    Monnify Bank Transfer Gateway
+                    Paystack Direct Transfer Gateway
                   </Badge>
                   <span className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
-                    <Lock className="h-3 w-3 text-emerald-400" /> Monnify Protected
+                    <Lock className="h-3 w-3 text-emerald-400" /> Paystack Secured
                   </span>
                 </div>
                 <DialogTitle className="text-xl font-bold tracking-tight text-white font-sans">
                   Upgrade Request: {plan.name}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-300 mt-1">
-                  Transfer the exact subscription amount below to our custom Monnify bank account and submit your payment details.
+                  Transfer the exact subscription amount below to our custom Paystack dedicated account and submit your payment details.
                 </DialogDescription>
               </DialogHeader>
 
-              {/* Monnify Setup Status Banner */}
+              {/* Paystack Setup Status Banner */}
               <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between text-xs text-amber-300 font-medium">
                 <div className="flex items-center gap-2">
                   <Clock className="h-3.5 w-3.5 text-amber-400 shrink-0 animate-pulse" />
-                  <span>Monnify Gateway: Awaiting Live API Keys & Contract Code Binding</span>
+                  <span>Paystack Gateway: Live NUBAN Virtual Account Active</span>
                 </div>
-                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] uppercase font-mono">
-                  Pending API Setup
+                <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px] uppercase font-mono">
+                  Paystack Active
                 </Badge>
               </div>
 
@@ -202,7 +202,7 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
             </div>
 
             <div className="p-6 space-y-4 overflow-y-auto max-h-[55vh]">
-              {/* Monnify Bank Account Card */}
+              {/* Paystack Bank Account Card */}
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -216,13 +216,13 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-slate-800">
                     <span className="text-muted-foreground">Bank Name</span>
-                    <span className="font-semibold text-foreground">{monnifyBankDetails.bankName}</span>
+                    <span className="font-semibold text-foreground">{paystackBankDetails.bankName}</span>
                   </div>
 
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-slate-800">
                     <span className="text-muted-foreground">Account Number</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-base text-primary tracking-wider">{monnifyBankDetails.accountNumber}</span>
+                      <span className="font-mono font-bold text-base text-primary tracking-wider">{paystackBankDetails.accountNumber}</span>
                       <Button
                         type="button"
                         variant="ghost"
@@ -237,13 +237,13 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
 
                   <div className="flex justify-between items-center py-1 border-b border-slate-200/60 dark:border-slate-800">
                     <span className="text-muted-foreground">Account Name</span>
-                    <span className="font-medium text-foreground">{monnifyBankDetails.accountName}</span>
+                    <span className="font-medium text-foreground">{paystackBankDetails.accountName}</span>
                   </div>
 
                   <div className="flex justify-between items-center py-1">
                     <span className="text-muted-foreground">Payment Reference</span>
                     <span className="font-mono text-[11px] font-bold text-slate-800 dark:text-slate-200 bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded">
-                      {monnifyBankDetails.reference}
+                      {paystackBankDetails.reference}
                     </span>
                   </div>
                 </div>
@@ -322,7 +322,7 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
             <Loader2 className="h-10 w-10 text-emerald-600 animate-spin mx-auto" />
             <div className="space-y-1">
               <h3 className="font-bold text-lg text-foreground">Sending Upgrade Request</h3>
-              <p className="text-xs text-muted-foreground">Submitting your Monnify transfer details to Super Admin...</p>
+              <p className="text-xs text-muted-foreground">Submitting your Paystack transfer details to Super Admin...</p>
             </div>
           </div>
         )}
@@ -341,7 +341,7 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
 
             <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs text-left space-y-1 font-mono">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Monnify Ref:</span>
+                <span className="text-muted-foreground">Paystack Ref:</span>
                 <span className="font-bold text-primary">{refCode}</span>
               </div>
               <div className="flex justify-between">

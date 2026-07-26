@@ -714,7 +714,7 @@ export function SubscriptionsManagementPage() {
       await addDoc(collection(db, "notifications"), {
         type: "request_update",
         title: "Subscription Upgrade Verified!",
-        message: `Your Monnify bank transfer payment of ₦${req.amountNgn.toLocaleString()} for ${req.planName} has been verified and activated. Valid until ${new Date(periodEnd).toLocaleDateString()}.`,
+        message: `Your Paystack bank transfer payment of ₦${req.amountNgn.toLocaleString()} for ${req.planName} has been verified and activated. Valid until ${new Date(periodEnd).toLocaleDateString()}.`,
         isRead: false,
         createdAt: new Date().toISOString()
       });
@@ -727,7 +727,7 @@ export function SubscriptionsManagementPage() {
         toPlan: req.targetTier,
         actorId: auth.currentUser?.email || "superadmin",
         timestamp: new Date().toISOString(),
-        reason: `Monnify bank transfer verified. Ref: ${req.bankReference}`
+        reason: `Paystack bank transfer verified. Ref: ${req.bankReference}`
       });
 
       toast.success(`Approved! Store upgraded to ${req.planName}`);
@@ -777,7 +777,7 @@ export function SubscriptionsManagementPage() {
         await addDoc(collection(db, "notifications"), {
           type: "expiry_warning",
           title: "NexaStoreOS Free Trial Ending Soon",
-          message: `Your free trial expires in ${daysLeft} day(s). Transfer to our Monnify bank account to upgrade seamlessly without interruption!`,
+          message: `Your free trial expires in ${daysLeft} day(s). Transfer via Paystack to upgrade seamlessly without interruption!`,
           isRead: false,
           createdAt: new Date().toISOString()
         });
@@ -787,7 +787,7 @@ export function SubscriptionsManagementPage() {
           to: store.storePhone || "merchant@store.com",
           storeId: store.id,
           subject: `Action Required: Your NexaStoreOS Trial Expires in ${daysLeft} Days`,
-          body: `Hello ${store.storeName || "Valued Merchant"},\n\nYour 14-day free trial on NexaStoreOS is expiring in ${daysLeft} days. Upgrade now via Monnify bank transfer to retain full access to your inventory, staff accounts, and daily reports.`,
+          body: `Hello ${store.storeName || "Valued Merchant"},\n\nYour 14-day free trial on NexaStoreOS is expiring in ${daysLeft} days. Upgrade now via Paystack to retain full access to your inventory, staff accounts, and daily reports.`,
           sentAt: new Date().toISOString(),
           status: "sent"
         });
@@ -1089,16 +1089,16 @@ export function SubscriptionsManagementPage() {
         </div>
       )}
 
-      {/* 2. MONNIFY BANK TRANSFER UPGRADE REQUESTS */}
+      {/* 2. PAYSTACK BANK TRANSFER UPGRADE REQUESTS */}
       {activeTab === "requests" && (
         <Card className="shadow-none border border-border">
           <CardHeader className="pb-3 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <CardTitle className="text-sm font-bold flex items-center gap-1.5">
-                <CreditCard className="h-4 w-4 text-emerald-500" /> Monnify Bank Transfer Upgrade Requests
+                <CreditCard className="h-4 w-4 text-emerald-500" /> Paystack Bank Transfer Upgrade Requests
               </CardTitle>
               <CardDescription className="text-xs">
-                Merchants who initiated manual bank transfer upgrades via custom Monnify details. Verify transfer and click Approve to upgrade the store immediately.
+                Merchants who initiated manual bank transfer upgrades via custom Paystack details. Verify transfer and click Approve to upgrade the store immediately.
               </CardDescription>
             </div>
           </CardHeader>
@@ -1110,7 +1110,7 @@ export function SubscriptionsManagementPage() {
                   <TableHead className="text-xs font-bold">Store Name & Ref</TableHead>
                   <TableHead className="text-xs font-bold">Target Tier & Price</TableHead>
                   <TableHead className="text-xs font-bold">Payer Info</TableHead>
-                  <TableHead className="text-xs font-bold">Monnify / Bank Ref</TableHead>
+                  <TableHead className="text-xs font-bold">Paystack / Bank Ref</TableHead>
                   <TableHead className="text-xs font-bold">Date Submitted</TableHead>
                   <TableHead className="text-xs font-bold text-center">Status</TableHead>
                   <TableHead className="text-xs font-bold text-right pr-6">Super Admin Action</TableHead>
@@ -1211,7 +1211,7 @@ export function SubscriptionsManagementPage() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={7} className="py-12 text-center text-sm text-muted-foreground">
-                      No Monnify bank transfer requests submitted yet.
+                      No Paystack bank transfer requests submitted yet.
                     </TableCell>
                   </TableRow>
                 )}

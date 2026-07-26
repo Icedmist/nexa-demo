@@ -51,22 +51,15 @@ export function StoreSettings() {
   const [storeDescription, setStoreDescription] = useState(activeSettings.storeDescription || "");
   const [receiptFooter, setReceiptFooter] = useState(activeSettings.receiptFooter || "");
   const [taxRate, setTaxRate] = useState(activeSettings.taxRate?.toString() || "0");
-  const [moniepointKey, setMoniepointKey] = useState(activeSettings.moniepointKey || "");
-  const [moniepointAccountNumber, setMoniepointAccountNumber] = useState(activeSettings.moniepointAccountNumber || "");
-  const [moniepointAccountName, setMoniepointAccountName] = useState(activeSettings.moniepointAccountName || "");
-  const [moniepointBankName, setMoniepointBankName] = useState(activeSettings.moniepointBankName || "Moniepoint Microfinance Bank");
-  const [showMoniepointKey, setShowMoniepointKey] = useState(false);
-  const [showMoniepointGuide, setShowMoniepointGuide] = useState(false);
-
-  // Monnify Gateway & Virtual Account Setup
-  const [monnifyApiKey, setMonnifyApiKey] = useState(activeSettings.monnifyApiKey || "");
-  const [monnifySecretKey, setMonnifySecretKey] = useState(activeSettings.monnifySecretKey || "");
-  const [monnifyContractCode, setMonnifyContractCode] = useState(activeSettings.monnifyContractCode || "");
-  const [monnifyAccountNumber, setMonnifyAccountNumber] = useState(activeSettings.monnifyAccountNumber || "5028910423");
-  const [monnifyAccountName, setMonnifyAccountName] = useState(activeSettings.monnifyAccountName || "NexaStoreOS / Monnify Gateway");
-  const [monnifyBankName, setMonnifyBankName] = useState(activeSettings.monnifyBankName || "Moniepoint MFB (Monnify Gateway)");
-  const [showMonnifyApiKey, setShowMonnifyApiKey] = useState(false);
-  const [showMonnifySecretKey, setShowMonnifySecretKey] = useState(false);
+  // Paystack Payment Gateway & Virtual Account Setup
+  const [paystackPublicKey, setPaystackPublicKey] = useState(activeSettings.paystackPublicKey || activeSettings.monnifyApiKey || "");
+  const [paystackSecretKey, setPaystackSecretKey] = useState(activeSettings.paystackSecretKey || activeSettings.monnifySecretKey || "");
+  const [paystackAccountNumber, setPaystackAccountNumber] = useState(activeSettings.paystackAccountNumber || activeSettings.moniepointAccountNumber || "5028910423");
+  const [paystackAccountName, setPaystackAccountName] = useState(activeSettings.paystackAccountName || activeSettings.moniepointAccountName || "NexaStoreOS / Paystack Merchant");
+  const [paystackBankName, setPaystackBankName] = useState(activeSettings.paystackBankName || "Wema Bank / Titan Paystack");
+  const [showPaystackPublicKey, setShowPaystackPublicKey] = useState(false);
+  const [showPaystackSecretKey, setShowPaystackSecretKey] = useState(false);
+  const [showPaystackGuide, setShowPaystackGuide] = useState(false);
   const [storeSlug, setStoreSlug] = useState(activeSettings.storeSlug || "");
   const [pricingMode, setPricingMode] = useState<"single" | "tiered">(activeSettings.pricingMode || "single");
   const [currency, setCurrency] = useState(activeSettings.currency || "NGN");
@@ -98,16 +91,11 @@ export function StoreSettings() {
     setStoreDescription(activeSettings.storeDescription || "");
     setReceiptFooter(activeSettings.receiptFooter || "");
     setTaxRate(activeSettings.taxRate?.toString() || "0");
-    setMoniepointKey(activeSettings.moniepointKey || "");
-    setMoniepointAccountNumber(activeSettings.moniepointAccountNumber || "");
-    setMoniepointAccountName(activeSettings.moniepointAccountName || "");
-    setMoniepointBankName(activeSettings.moniepointBankName || "Moniepoint Microfinance Bank");
-    setMonnifyApiKey(activeSettings.monnifyApiKey || "");
-    setMonnifySecretKey(activeSettings.monnifySecretKey || "");
-    setMonnifyContractCode(activeSettings.monnifyContractCode || "");
-    setMonnifyAccountNumber(activeSettings.monnifyAccountNumber || "5028910423");
-    setMonnifyAccountName(activeSettings.monnifyAccountName || "NexaStoreOS / Monnify Gateway");
-    setMonnifyBankName(activeSettings.monnifyBankName || "Moniepoint MFB (Monnify Gateway)");
+    setPaystackPublicKey(activeSettings.paystackPublicKey || activeSettings.monnifyApiKey || "");
+    setPaystackSecretKey(activeSettings.paystackSecretKey || activeSettings.monnifySecretKey || "");
+    setPaystackAccountNumber(activeSettings.paystackAccountNumber || activeSettings.moniepointAccountNumber || "5028910423");
+    setPaystackAccountName(activeSettings.paystackAccountName || activeSettings.moniepointAccountName || "NexaStoreOS / Paystack Merchant");
+    setPaystackBankName(activeSettings.paystackBankName || "Wema Bank / Titan Paystack");
     setStoreSlug(activeSettings.storeSlug || "");
     setPricingMode(activeSettings.pricingMode || "single");
     setCurrency(activeSettings.currency || "NGN");
@@ -216,17 +204,22 @@ export function StoreSettings() {
       storeDescription: storeDescription.trim(),
       receiptFooter: receiptFooter.trim(),
       taxRate: parseFloat(taxRate) || 0,
-      moniepointKey: moniepointKey.trim(),
-      moniepointAccountNumber: moniepointAccountNumber.trim(),
-      moniepointAccountName: moniepointAccountName.trim(),
-      moniepointBankName: moniepointBankName.trim() || "Moniepoint Microfinance Bank",
-      monnifyApiKey: monnifyApiKey.trim(),
-      monnifySecretKey: monnifySecretKey.trim(),
-      monnifyContractCode: monnifyContractCode.trim(),
-      monnifyAccountNumber: monnifyAccountNumber.trim(),
-      monnifyAccountName: monnifyAccountName.trim(),
-      monnifyBankName: monnifyBankName.trim() || "Moniepoint MFB (Monnify Gateway)",
-      monnifyStatus: (monnifyApiKey.trim() && monnifySecretKey.trim()) ? "active" : "waiting_for_keys",
+      paystackPublicKey: paystackPublicKey.trim(),
+      paystackSecretKey: paystackSecretKey.trim(),
+      paystackAccountNumber: paystackAccountNumber.trim(),
+      paystackAccountName: paystackAccountName.trim(),
+      paystackBankName: paystackBankName.trim() || "Wema Bank / Titan Paystack",
+      paystackStatus: (paystackSecretKey.trim() || paystackPublicKey.trim()) ? "active" : "waiting_for_keys",
+      moniepointKey: paystackSecretKey.trim(),
+      moniepointAccountNumber: paystackAccountNumber.trim(),
+      moniepointAccountName: paystackAccountName.trim(),
+      moniepointBankName: paystackBankName.trim(),
+      monnifyApiKey: paystackPublicKey.trim(),
+      monnifySecretKey: paystackSecretKey.trim(),
+      monnifyAccountNumber: paystackAccountNumber.trim(),
+      monnifyAccountName: paystackAccountName.trim(),
+      monnifyBankName: paystackBankName.trim(),
+      monnifyStatus: (paystackSecretKey.trim() || paystackPublicKey.trim()) ? "active" : "waiting_for_keys",
       storeSlug: storeSlug.trim(),
       pricingMode: pricingMode,
       currency: currency,
@@ -765,10 +758,10 @@ export function StoreSettings() {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="moniepoint-key">Moniepoint API Key</Label>
+                    <Label htmlFor="paystack-public-key">Paystack Public Key</Label>
                     <button
                       type="button"
-                      onClick={() => setShowMoniepointGuide(true)}
+                      onClick={() => setShowPaystackGuide(true)}
                       className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1"
                     >
                       <HelpCircle className="h-3 w-3" /> API Key Guide
@@ -776,192 +769,114 @@ export function StoreSettings() {
                   </div>
                   <div className="relative">
                     <Input 
-                      id="moniepoint-key" 
-                      type={showMoniepointKey ? "text" : "password"} 
-                      value={moniepointKey} 
-                      onChange={(e) => setMoniepointKey(e.target.value)} 
-                      placeholder="sk_live_..."
+                      id="paystack-public-key" 
+                      type={showPaystackPublicKey ? "text" : "password"} 
+                      value={paystackPublicKey} 
+                      onChange={(e) => setPaystackPublicKey(e.target.value)} 
+                      placeholder="pk_live_..."
                       className="pr-10 font-mono text-xs"
                     />
                     <button
                       type="button"
-                      onClick={() => setShowMoniepointKey(!showMoniepointKey)}
+                      onClick={() => setShowPaystackPublicKey(!showPaystackPublicKey)}
                       className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
-                      aria-label={showMoniepointKey ? "Hide API key" : "Show API key"}
+                      aria-label={showPaystackPublicKey ? "Hide API key" : "Show API key"}
                     >
-                      {showMoniepointKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPaystackPublicKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="moniepoint-account-no">Moniepoint Account Number</Label>
+                  <Label htmlFor="paystack-secret-key">Paystack Secret Key</Label>
+                  <div className="relative">
+                    <Input 
+                      id="paystack-secret-key" 
+                      type={showPaystackSecretKey ? "text" : "password"} 
+                      value={paystackSecretKey} 
+                      onChange={(e) => setPaystackSecretKey(e.target.value)} 
+                      placeholder="sk_live_..."
+                      className="pr-10 font-mono text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPaystackSecretKey(!showPaystackSecretKey)}
+                      className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+                      aria-label={showPaystackSecretKey ? "Hide API key" : "Show API key"}
+                    >
+                      {showPaystackSecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="paystack-account-no">Paystack Settlement Account Number</Label>
                   <Input 
-                    id="moniepoint-account-no" 
-                    value={moniepointAccountNumber} 
-                    onChange={(e) => setMoniepointAccountNumber(e.target.value.replace(/[^0-9]/g, ""))} 
-                    placeholder="e.g. 8132119637"
+                    id="paystack-account-no" 
+                    value={paystackAccountNumber} 
+                    onChange={(e) => setPaystackAccountNumber(e.target.value.replace(/[^0-9]/g, ""))} 
+                    placeholder="e.g. 5028910423"
                     maxLength={10}
                     className="font-mono text-xs"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="moniepoint-account-name">Moniepoint Account Name</Label>
+                  <Label htmlFor="paystack-account-name">Paystack Account Beneficiary Name</Label>
                   <Input 
-                    id="moniepoint-account-name" 
-                    value={moniepointAccountName} 
-                    onChange={(e) => setMoniepointAccountName(e.target.value)} 
-                    placeholder="e.g. Adebayo Enterprise Ltd"
+                    id="paystack-account-name" 
+                    value={paystackAccountName} 
+                    onChange={(e) => setPaystackAccountName(e.target.value)} 
+                    placeholder="e.g. Adebayo Enterprise Ltd / Paystack"
                     className="text-xs"
                   />
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="moniepoint-bank-name">Moniepoint Bank Name</Label>
+                  <Label htmlFor="paystack-bank-name">Settlement Bank Name</Label>
                   <Input 
-                    id="moniepoint-bank-name" 
-                    value={moniepointBankName} 
-                    onChange={(e) => setMoniepointBankName(e.target.value)} 
-                    placeholder="e.g. Moniepoint Microfinance Bank"
+                    id="paystack-bank-name" 
+                    value={paystackBankName} 
+                    onChange={(e) => setPaystackBankName(e.target.value)} 
+                    placeholder="e.g. Wema Bank / Titan Paystack"
                     className="text-xs"
                   />
                 </div>
 
-                {/* Monnify Gateway & Virtual Account Configuration Card */}
+                {/* Paystack Gateway & Dedicated Virtual Account Configuration Card */}
                 <div className="sm:col-span-2 mt-4 p-5 rounded-2xl bg-gradient-to-br from-slate-900/90 to-indigo-950/60 border border-indigo-500/30 space-y-4 text-white shadow-xl">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
                     <div>
                       <div className="flex items-center gap-2">
                         <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] uppercase font-bold tracking-wider">
-                          Monnify Gateway Engine
+                          Paystack Direct Gateway Engine
                         </Badge>
-                        {(!monnifyApiKey || !monnifySecretKey) ? (
+                        {(!paystackSecretKey && !paystackPublicKey) ? (
                           <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[10px] font-bold flex items-center gap-1 animate-pulse">
-                            <Clock className="h-3 w-3" /> Waiting for API Setup & Keys
+                            <Clock className="h-3 w-3" /> Waiting for API Keys
                           </Badge>
                         ) : (
                           <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Monnify Gateway Active
+                            <CheckCircle2 className="h-3 w-3" /> Paystack Gateway Active
                           </Badge>
                         )}
                       </div>
-                      <h4 className="text-sm font-bold text-white mt-1">Monnify Account Setup & Virtual Account Settlement</h4>
+                      <h4 className="text-sm font-bold text-white mt-1">Paystack Account Setup & Dedicated Virtual Account Settlement</h4>
                       <p className="text-xs text-slate-300">
-                        Collect automated bank transfer payments, generate dynamic POS customer accounts, and receive real-time webhook notifications via Monnify.
+                        Collect automated card payments, bank transfers, USSD, and generate dynamic dedicated customer accounts with instant Paystack webhook notifications.
                       </p>
                     </div>
                   </div>
 
-                  {(!monnifyApiKey || !monnifySecretKey) && (
+                  {(!paystackSecretKey && !paystackPublicKey) && (
                     <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs flex items-start gap-2.5">
                       <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-semibold block text-amber-300">Monnify Key Exchange Required</span>
-                        Your Monnify virtual account gateway is initialized. Once Monnify issues your production API Key, Secret Key, and Contract Code, enter them below to enable automated 2-second bank transfer verification.
+                        <span className="font-semibold block text-amber-300">Paystack Keys Configured</span>
+                        Enter your Paystack Public and Secret keys above to enable automated transaction status verification, instant bank transfer reconciliation, and split settlements.
                       </div>
                     </div>
                   )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-slate-200">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="monnify-api-key" className="text-xs font-semibold text-slate-200">
-                        Monnify API Key (MK_PROD_...)
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="monnify-api-key"
-                          type={showMonnifyApiKey ? "text" : "password"}
-                          value={monnifyApiKey}
-                          onChange={(e) => setMonnifyApiKey(e.target.value)}
-                          placeholder="MK_PROD_..."
-                          className="bg-black/40 border-white/10 text-white font-mono text-xs pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowMonnifyApiKey(!showMonnifyApiKey)}
-                          className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
-                        >
-                          {showMonnifyApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="monnify-secret-key" className="text-xs font-semibold text-slate-200">
-                        Monnify Secret Key (SK_PROD_...)
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="monnify-secret-key"
-                          type={showMonnifySecretKey ? "text" : "password"}
-                          value={monnifySecretKey}
-                          onChange={(e) => setMonnifySecretKey(e.target.value)}
-                          placeholder="SK_PROD_..."
-                          className="bg-black/40 border-white/10 text-white font-mono text-xs pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowMonnifySecretKey(!showMonnifySecretKey)}
-                          className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
-                        >
-                          {showMonnifySecretKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="monnify-contract-code" className="text-xs font-semibold text-slate-200">
-                        Monnify Contract Code
-                      </Label>
-                      <Input
-                        id="monnify-contract-code"
-                        value={monnifyContractCode}
-                        onChange={(e) => setMonnifyContractCode(e.target.value)}
-                        placeholder="e.g. 8923415609"
-                        className="bg-black/40 border-white/10 text-white font-mono text-xs"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="monnify-account-number" className="text-xs font-semibold text-slate-200">
-                        Monnify Dedicated Virtual Account
-                      </Label>
-                      <Input
-                        id="monnify-account-number"
-                        value={monnifyAccountNumber}
-                        onChange={(e) => setMonnifyAccountNumber(e.target.value)}
-                        placeholder="5028910423"
-                        className="bg-black/40 border-white/10 text-white font-mono text-xs"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="monnify-account-name" className="text-xs font-semibold text-slate-200">
-                        Monnify Account Beneficiary Name
-                      </Label>
-                      <Input
-                        id="monnify-account-name"
-                        value={monnifyAccountName}
-                        onChange={(e) => setMonnifyAccountName(e.target.value)}
-                        placeholder="NexaStoreOS / Monnify Gateway"
-                        className="bg-black/40 border-white/10 text-white text-xs"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="monnify-bank-name" className="text-xs font-semibold text-slate-200">
-                        Settlement Bank
-                      </Label>
-                      <Input
-                        id="monnify-bank-name"
-                        value={monnifyBankName}
-                        onChange={(e) => setMonnifyBankName(e.target.value)}
-                        placeholder="Moniepoint MFB (Monnify Gateway)"
-                        className="bg-black/40 border-white/10 text-white text-xs"
-                      />
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -1045,18 +960,18 @@ export function StoreSettings() {
         </CardContent>
       </Card>
 
-      {/* ── Moniepoint API Key Setup Guide Dialog ── */}
-      <Dialog open={showMoniepointGuide} onOpenChange={setShowMoniepointGuide}>
+      {/* ── Paystack API Key Setup Guide Dialog ── */}
+      <Dialog open={showPaystackGuide} onOpenChange={setShowPaystackGuide}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
               <div className="p-1.5 bg-blue-500/10 text-blue-600 rounded-lg">
                 <Landmark className="h-5 w-5" />
               </div>
-              How to Get Your Moniepoint API Key
+              How to Get Your Paystack API Keys
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Follow these simple steps to retrieve your API Secret Key from the Moniepoint app or web dashboard:
+              Follow these simple steps to retrieve your Public and Secret API Keys from your Paystack Dashboard:
             </DialogDescription>
           </DialogHeader>
 
@@ -1064,24 +979,24 @@ export function StoreSettings() {
             <div className="flex gap-3 items-start p-3 bg-muted/40 rounded-xl border border-border">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">1</div>
               <div>
-                <p className="font-bold text-foreground">Open Moniepoint Web or App</p>
-                <p className="text-muted-foreground mt-0.5">Log in to your Moniepoint POS / Business Mobile App or visit <a href="https://moniepoint.com" target="_blank" rel="noopener noreferrer" className="text-primary underline font-bold">moniepoint.com</a> on your browser.</p>
+                <p className="font-bold text-foreground">Open Paystack Dashboard</p>
+                <p className="text-muted-foreground mt-0.5">Log in to your Paystack merchant account at <a href="https://dashboard.paystack.com" target="_blank" rel="noopener noreferrer" className="text-primary underline font-bold">dashboard.paystack.com</a>.</p>
               </div>
             </div>
 
             <div className="flex gap-3 items-start p-3 bg-muted/40 rounded-xl border border-border">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</div>
               <div>
-                <p className="font-bold text-foreground">Navigate to Settings & Developer Tools</p>
-                <p className="text-muted-foreground mt-0.5">Tap or click <strong>Settings</strong> $\rightarrow$ <strong>Developer Tools / API Keys</strong> (or <strong>Online Payments & Webhooks</strong>).</p>
+                <p className="font-bold text-foreground">Navigate to Settings & API Keys</p>
+                <p className="text-muted-foreground mt-0.5">Click <strong>Settings</strong> $\rightarrow$ <strong>API Keys & Webhooks</strong> in the bottom left menu.</p>
               </div>
             </div>
 
             <div className="flex gap-3 items-start p-3 bg-muted/40 rounded-xl border border-border">
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">3</div>
               <div>
-                <p className="font-bold text-foreground">Generate or Copy Live Secret Key</p>
-                <p className="text-muted-foreground mt-0.5">Click <strong>"Generate API Key"</strong> or copy your existing secret key (starting with <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[11px] text-primary">sk_live_...</code>).</p>
+                <p className="font-bold text-foreground">Copy Your Live Public & Secret Keys</p>
+                <p className="text-muted-foreground mt-0.5">Copy your Public Key (<code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[11px] text-primary">pk_live_...</code>) and Secret Key (<code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[11px] text-primary">sk_live_...</code>).</p>
               </div>
             </div>
 
@@ -1089,7 +1004,7 @@ export function StoreSettings() {
               <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">4</div>
               <div>
                 <p className="font-bold text-foreground">Paste & Save in NexaStoreOS</p>
-                <p className="text-muted-foreground mt-0.5">Paste the key into the <strong>Moniepoint API Key</strong> field, fill in your Moniepoint Account Number & Name, and click <strong>Save Settings</strong>.</p>
+                <p className="text-muted-foreground mt-0.5">Paste both keys into the Paystack fields, enter your settlement bank account details, and click <strong>Save Settings</strong>.</p>
               </div>
             </div>
           </div>
@@ -1099,15 +1014,15 @@ export function StoreSettings() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => window.open("https://moniepoint.com", "_blank")}
+              onClick={() => window.open("https://dashboard.paystack.com/#/settings/developer", "_blank")}
               className="gap-1.5 text-xs font-bold"
             >
-              <ExternalLink className="h-3.5 w-3.5" /> Open Moniepoint
+              <ExternalLink className="h-3.5 w-3.5" /> Open Paystack Dashboard
             </Button>
             <Button
               type="button"
               size="sm"
-              onClick={() => setShowMoniepointGuide(false)}
+              onClick={() => setShowPaystackGuide(false)}
               className="text-xs font-bold"
             >
               Got It, Thanks!

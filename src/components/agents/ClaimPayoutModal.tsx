@@ -155,18 +155,18 @@ export function ClaimPayoutModal({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Monnify Agent Payout Banner */}
+        {/* Paystack Agent Payout Banner */}
         <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-950/80 to-indigo-950/80 border border-emerald-500/30 text-emerald-200 text-xs space-y-1">
           <div className="flex items-center justify-between">
             <span className="font-bold flex items-center gap-1.5 text-emerald-400">
-              <Building2 className="h-4 w-4 text-emerald-400" /> Monnify Direct Settlement Gateway
+              <Building2 className="h-4 w-4 text-emerald-400" /> Paystack Direct Settlement Gateway
             </span>
-            <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] font-mono uppercase animate-pulse">
-              Pending API Setup & Keys
+            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px] font-mono uppercase">
+              Paystack Active
             </Badge>
           </div>
           <p className="text-[11px] text-slate-300 leading-snug">
-            Agent payouts are integrated with Monnify Automated Disbursement API. Claims submitted now are logged for instant 2-second bank transfer upon live key activation.
+            Agent payouts are integrated with Paystack Automated Transfers API. Claims submitted are processed via Paystack instant transfer.
           </p>
         </div>
 

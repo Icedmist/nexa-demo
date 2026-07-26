@@ -55,51 +55,59 @@ function SuperAdminUpdates() {
   const [sendEmail, setSendEmail] = useState(true);
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
 
-  // Super Admin Monnify Master Gateway State
-  const [monnifyApiKey, setMonnifyApiKey] = useState("");
-  const [monnifySecretKey, setMonnifySecretKey] = useState("");
-  const [monnifyContractCode, setMonnifyContractCode] = useState("8923415609");
-  const [monnifyAccountNumber, setMonnifyAccountNumber] = useState("5028910423");
-  const [monnifyAccountName, setMonnifyAccountName] = useState("NexaStoreOS / Monnify Gateway");
-  const [monnifyBankName, setMonnifyBankName] = useState("Moniepoint MFB (Monnify Gateway)");
-  const [showMonnifySecret, setShowMonnifySecret] = useState(false);
+  // Super Admin Paystack Master Gateway State
+  const [paystackPublicKey, setPaystackPublicKey] = useState("");
+  const [paystackSecretKey, setPaystackSecretKey] = useState("");
+  const [paystackAccountNumber, setPaystackAccountNumber] = useState("5028910423");
+  const [paystackAccountName, setPaystackAccountName] = useState("NexaStoreOS / Paystack Gateway");
+  const [paystackBankName, setPaystackBankName] = useState("Wema Bank / Titan Paystack");
+  const [showPaystackSecret, setShowPaystackSecret] = useState(false);
 
   useEffect(() => {
     if (!isDemo) {
-      const unsub = onSnapshot(doc(db, "settings", "monnify_gateway"), (snap) => {
+      const unsub = onSnapshot(doc(db, "settings", "paystack_gateway"), (snap) => {
         if (snap.exists()) {
           const d = snap.data();
-          setMonnifyApiKey(d.apiKey || "");
-          setMonnifySecretKey(d.secretKey || "");
-          setMonnifyContractCode(d.contractCode || "8923415609");
-          setMonnifyAccountNumber(d.accountNumber || "5028910423");
-          setMonnifyAccountName(d.accountName || "NexaStoreOS / Monnify Gateway");
-          setMonnifyBankName(d.bankName || "Moniepoint MFB (Monnify Gateway)");
+          setPaystackPublicKey(d.publicKey || d.apiKey || "");
+          setPaystackSecretKey(d.secretKey || "");
+          setPaystackAccountNumber(d.accountNumber || "5028910423");
+          setPaystackAccountName(d.accountName || "NexaStoreOS / Paystack Gateway");
+          setPaystackBankName(d.bankName || "Wema Bank / Titan Paystack");
         }
       });
       return unsub;
     }
   }, [isDemo]);
 
-  const handleSaveMonnifyConfig = async (e: React.FormEvent) => {
+  const handleSavePaystackConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (!isDemo) {
+        await setDoc(doc(db, "settings", "paystack_gateway"), {
+          publicKey: paystackPublicKey.trim(),
+          secretKey: paystackSecretKey.trim(),
+          accountNumber: paystackAccountNumber.trim(),
+          accountName: paystackAccountName.trim(),
+          bankName: paystackBankName.trim(),
+          status: (paystackSecretKey.trim() || paystackPublicKey.trim()) ? "active" : "waiting_for_keys",
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        // Also sync to legacy document for backward compatibility
         await setDoc(doc(db, "settings", "monnify_gateway"), {
-          apiKey: monnifyApiKey.trim(),
-          secretKey: monnifySecretKey.trim(),
-          contractCode: monnifyContractCode.trim(),
-          accountNumber: monnifyAccountNumber.trim(),
-          accountName: monnifyAccountName.trim(),
-          bankName: monnifyBankName.trim(),
-          status: (monnifyApiKey.trim() && monnifySecretKey.trim()) ? "active" : "waiting_for_keys",
+          apiKey: paystackPublicKey.trim(),
+          secretKey: paystackSecretKey.trim(),
+          accountNumber: paystackAccountNumber.trim(),
+          accountName: paystackAccountName.trim(),
+          bankName: paystackBankName.trim(),
+          status: (paystackSecretKey.trim() || paystackPublicKey.trim()) ? "active" : "waiting_for_keys",
           updatedAt: new Date().toISOString()
         }, { merge: true });
       }
-      toast.success("Monnify Master Gateway configuration saved!");
+      toast.success("Paystack Master Gateway configuration saved!");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save Monnify config.");
+      toast.error("Failed to save Paystack config.");
     }
   };
 
@@ -802,27 +810,27 @@ function SuperAdminUpdates() {
         </CardContent>
       </Card>
 
-      {/* SUPER ADMIN MONNIFY MASTER PAYMENT GATEWAY CARD */}
+      {/* SUPER ADMIN PAYSTACK MASTER PAYMENT GATEWAY CARD */}
       <Card className="shadow-none border border-emerald-500/30 bg-gradient-to-br from-slate-900 via-slate-950 to-indigo-950 text-white overflow-hidden">
-        <form onSubmit={handleSaveMonnifyConfig}>
+        <form onSubmit={handleSavePaystackConfig}>
           <CardHeader className="border-b border-white/10 pb-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <CardTitle className="text-lg font-bold font-sans flex items-center gap-2 text-white">
-                  <CreditCard className="h-5 w-5 text-emerald-400" /> Monnify Master Gateway & Disbursement Hub
+                  <CreditCard className="h-5 w-5 text-emerald-400" /> Paystack Master Gateway & Disbursement Hub
                 </CardTitle>
                 <CardDescription className="text-slate-300 text-xs mt-0.5">
                   System-wide payment collection engine for merchant subscriptions, POS virtual accounts, and automated field agent payouts.
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {(!monnifyApiKey || !monnifySecretKey) ? (
+                {(!paystackPublicKey || !paystackSecretKey) ? (
                   <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-bold px-3 py-1 flex items-center gap-1.5 animate-pulse">
-                    <Clock className="h-3.5 w-3.5" /> Waiting for Production API Setup & Keys
+                    <Clock className="h-3.5 w-3.5" /> Waiting for Production API Keys
                   </Badge>
                 ) : (
                   <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px] font-bold px-3 py-1 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Monnify Gateway Connected
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Paystack Gateway Connected
                   </Badge>
                 )}
               </div>
@@ -830,13 +838,13 @@ function SuperAdminUpdates() {
           </CardHeader>
 
           <CardContent className="p-6 space-y-5">
-            {(!monnifyApiKey || !monnifySecretKey) && (
+            {(!paystackPublicKey || !paystackSecretKey) && (
               <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-3">
                 <ShieldAlert className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <span className="font-bold text-amber-300 block text-sm">Monnify Account Setup Pending Live Keys</span>
+                  <span className="font-bold text-amber-300 block text-sm">Paystack Account Setup Pending Live Keys</span>
                   <p className="text-slate-300 text-xs leading-relaxed">
-                    Monnify gateway structure is initialized across client, agent, and super-admin portals. Super Admin is currently waiting for live Monnify API credentials (<code className="text-amber-300 bg-black/40 px-1 py-0.5 rounded">MK_PROD_...</code>, <code className="text-amber-300 bg-black/40 px-1 py-0.5 rounded">SK_PROD_...</code>, and Contract Code) from Monnify Dashboard. Enter keys below once issued to unlock instant webhook payment reconciliation and automated 2-second payouts.
+                    Paystack gateway structure is initialized across client, agent, and super-admin portals. Enter your live Paystack API credentials (<code className="text-amber-300 bg-black/40 px-1 py-0.5 rounded">pk_live_...</code> and <code className="text-amber-300 bg-black/40 px-1 py-0.5 rounded">sk_live_...</code>) from Paystack Dashboard below to enable instant webhook payment reconciliation and automated agent payouts.
                   </p>
                 </div>
               </div>
@@ -844,89 +852,76 @@ function SuperAdminUpdates() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-slate-200">
               <div className="space-y-1.5">
-                <Label htmlFor="super-monnify-api-key" className="text-xs font-semibold text-slate-200">
-                  Monnify API Key (MK_PROD_...)
+                <Label htmlFor="super-paystack-api-key" className="text-xs font-semibold text-slate-200">
+                  Paystack Public Key (pk_live_...)
                 </Label>
                 <Input
-                  id="super-monnify-api-key"
-                  value={monnifyApiKey}
-                  onChange={(e) => setMonnifyApiKey(e.target.value)}
-                  placeholder="MK_PROD_..."
+                  id="super-paystack-api-key"
+                  value={paystackPublicKey}
+                  onChange={(e) => setPaystackPublicKey(e.target.value)}
+                  placeholder="pk_live_..."
                   className="bg-black/50 border-white/10 text-white font-mono text-xs h-9"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="super-monnify-secret-key" className="text-xs font-semibold text-slate-200">
-                  Monnify Secret Key (SK_PROD_...)
+                <Label htmlFor="super-paystack-secret-key" className="text-xs font-semibold text-slate-200">
+                  Paystack Secret Key (sk_live_...)
                 </Label>
                 <div className="relative">
                   <Input
-                    id="super-monnify-secret-key"
-                    type={showMonnifySecret ? "text" : "password"}
-                    value={monnifySecretKey}
-                    onChange={(e) => setMonnifySecretKey(e.target.value)}
-                    placeholder="SK_PROD_..."
+                    id="super-paystack-secret-key"
+                    type={showPaystackSecret ? "text" : "password"}
+                    value={paystackSecretKey}
+                    onChange={(e) => setPaystackSecretKey(e.target.value)}
+                    placeholder="sk_live_..."
                     className="bg-black/50 border-white/10 text-white font-mono text-xs h-9 pr-10"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowMonnifySecret(!showMonnifySecret)}
+                    onClick={() => setShowPaystackSecret(!showPaystackSecret)}
                     className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
                   >
-                    {showMonnifySecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPaystackSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="super-monnify-contract-code" className="text-xs font-semibold text-slate-200">
-                  Contract Code
-                </Label>
-                <Input
-                  id="super-monnify-contract-code"
-                  value={monnifyContractCode}
-                  onChange={(e) => setMonnifyContractCode(e.target.value)}
-                  placeholder="8923415609"
-                  className="bg-black/50 border-white/10 text-white font-mono text-xs h-9"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="super-monnify-account-no" className="text-xs font-semibold text-slate-200">
+                <Label htmlFor="super-paystack-account-no" className="text-xs font-semibold text-slate-200">
                   Master Reserved Virtual Account
                 </Label>
                 <Input
-                  id="super-monnify-account-no"
-                  value={monnifyAccountNumber}
-                  onChange={(e) => setMonnifyAccountNumber(e.target.value)}
+                  id="super-paystack-account-no"
+                  value={paystackAccountNumber}
+                  onChange={(e) => setPaystackAccountNumber(e.target.value)}
                   placeholder="5028910423"
                   className="bg-black/50 border-white/10 text-white font-mono text-xs h-9"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="super-monnify-account-name" className="text-xs font-semibold text-slate-200">
+                <Label htmlFor="super-paystack-account-name" className="text-xs font-semibold text-slate-200">
                   Account Beneficiary Name
                 </Label>
                 <Input
-                  id="super-monnify-account-name"
-                  value={monnifyAccountName}
-                  onChange={(e) => setMonnifyAccountName(e.target.value)}
-                  placeholder="NexaStoreOS / Monnify Gateway"
+                  id="super-paystack-account-name"
+                  value={paystackAccountName}
+                  onChange={(e) => setPaystackAccountName(e.target.value)}
+                  placeholder="NexaStoreOS / Paystack Gateway"
                   className="bg-black/50 border-white/10 text-white text-xs h-9"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="super-monnify-bank-name" className="text-xs font-semibold text-slate-200">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="super-paystack-bank-name" className="text-xs font-semibold text-slate-200">
                   Settlement Bank Name
                 </Label>
                 <Input
-                  id="super-monnify-bank-name"
-                  value={monnifyBankName}
-                  onChange={(e) => setMonnifyBankName(e.target.value)}
-                  placeholder="Moniepoint MFB (Monnify Gateway)"
+                  id="super-paystack-bank-name"
+                  value={paystackBankName}
+                  onChange={(e) => setPaystackBankName(e.target.value)}
+                  placeholder="Wema Bank / Titan Paystack"
                   className="bg-black/50 border-white/10 text-white text-xs h-9"
                 />
               </div>
@@ -935,10 +930,10 @@ function SuperAdminUpdates() {
 
           <CardFooter className="border-t border-white/10 bg-black/30 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <span className="text-[11px] text-slate-400 font-mono">
-              Webhook Endpoint: <code className="text-emerald-400">https://nexastoreos.com/api/webhooks/monnify</code>
+              Webhook Endpoint: <code className="text-emerald-400">https://nexastoreos.com/api/webhooks/paystack</code>
             </span>
             <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs h-9 px-5">
-              Save Master Monnify Configuration
+              Save Master Paystack Configuration
             </Button>
           </CardFooter>
         </form>

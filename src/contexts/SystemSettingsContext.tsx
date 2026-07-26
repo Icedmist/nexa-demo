@@ -46,6 +46,12 @@ export interface StoreSettings {
   monnifyAccountName?: string;
   monnifyBankName?: string;
   monnifyStatus?: "waiting_for_keys" | "active" | "testing";
+  paystackPublicKey?: string;
+  paystackSecretKey?: string;
+  paystackAccountNumber?: string;
+  paystackAccountName?: string;
+  paystackBankName?: string;
+  paystackStatus?: "waiting_for_keys" | "active" | "testing";
   aiAssistantApiKey?: string;
   storeSlug?: string;
   onboardedAt?: string;
@@ -82,16 +88,22 @@ const DEFAULT_SETTINGS: StoreSettings = {
   country: "Nigeria",
   state: "",
   lga: "",
-  moniepointBankName: "Moniepoint Microfinance Bank",
+  moniepointBankName: "Wema Bank (Paystack Gateway)",
   moniepointAccountNumber: "5028910423",
-  moniepointAccountName: "Nexa OS Main Operations",
-  monnifyBankName: "Moniepoint MFB (Monnify Gateway)",
+  moniepointAccountName: "NexaOS Main Operations",
+  monnifyBankName: "Wema Bank / Titan Paystack",
   monnifyAccountNumber: "5028910423",
-  monnifyAccountName: "NexaStoreOS / Monnify Gateway",
+  monnifyAccountName: "NexaStoreOS / Paystack Gateway",
   monnifyContractCode: "",
   monnifyApiKey: "",
   monnifySecretKey: "",
-  monnifyStatus: "waiting_for_keys"
+  monnifyStatus: "waiting_for_keys",
+  paystackBankName: "Wema Bank (Paystack Gateway)",
+  paystackAccountNumber: "5028910423",
+  paystackAccountName: "NexaStoreOS / Paystack Merchant",
+  paystackPublicKey: "",
+  paystackSecretKey: "",
+  paystackStatus: "waiting_for_keys"
 };
 
 interface SystemSettingsContextValue {
