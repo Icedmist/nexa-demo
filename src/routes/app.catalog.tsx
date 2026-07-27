@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Plus, Upload, QrCode, HelpCircle } from "lucide-react";
+import { Plus, Upload, QrCode, HelpCircle, Package } from "lucide-react";
 import { toast } from "sonner";
-import { Package } from "lucide-react";
+import { useSector } from "@/hooks/useSector";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CSVExportButton, type CSVColumn } from "@/components/data/CSVExportButton";
@@ -157,6 +157,22 @@ function CatalogPage() {
   const deleteItem = useDeleteItem();
   const { can } = usePermissions();
   const { isAdmin } = useRole();
+  const sector = useSector();
+
+  const filteredCategories = useMemo(() => {
+    if (sector.type !== "pharmacy") {
+      return categories.filter((c) => {
+        const norm = (c.name || "").toLowerCase() + " " + (c.id || "").toLowerCase();
+        return (
+          !norm.includes("pharmacy") &&
+          !norm.includes("medicine") &&
+          !norm.includes("pharmaceutical") &&
+          !norm.includes("prescription")
+        );
+      });
+    }
+    return categories;
+  }, [categories, sector.type]);
 
   // Derive detail item from URL search param
   const detailItem = useMemo(() => {
@@ -288,8 +304,8 @@ function CatalogPage() {
     <div className="mx-auto max-w-[1400px] space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Product Catalog</h1>
-          <p className="text-sm text-muted-foreground">{items.length} items</p>
+          <h1 className="text-2xl font-semibold text-foreground">{sector.t("catalog")}</h1>
+          <p className="text-sm text-muted-foreground">{items.length} {sector.t("item").toLowerCase()}s</p>
         </div>
         <div className="flex items-center gap-2">
           <CSVExportButton
@@ -332,7 +348,7 @@ function CatalogPage() {
           </PermissionGate>
           <PermissionGate permission="create_item">
             <Button onClick={openCreate} className="hidden gap-1.5 sm:inline-flex">
-              <Plus className="h-4 w-4" />New Item
+              <Plus className="h-4 w-4" />{sector.primaryAction || "New Item"}
             </Button>
           </PermissionGate>
         </div>
@@ -342,7 +358,7 @@ function CatalogPage() {
         <CatalogFilters 
           filters={filters} 
           onChange={setFilters} 
-          categories={categories} 
+          categories={filteredCategories} 
           suppliers={suppliers} 
           locations={locations} 
           view={view}
@@ -363,7 +379,7 @@ function CatalogPage() {
       ) : view === "list" ? (
         <CatalogTable
           items={items}
-          categories={categories}
+          categories={filteredCategories}
           suppliers={suppliers}
           locations={locations}
           sort={sort}
@@ -377,7 +393,7 @@ function CatalogPage() {
       ) : (
         <CatalogGrid 
           items={items}
-          categories={categories}
+          categories={filteredCategories}
           onRowClick={(item) => openDetail(item)}
           actionRenderer={actionRenderer}
           selected={selected}
@@ -391,7 +407,7 @@ function CatalogPage() {
         open={sheetOpen}
         onOpenChange={(v) => { setSheetOpen(v); if (!v) setEditItem(null); }}
         item={editItem}
-        categories={categories}
+        categories={filteredCategories}
         suppliers={suppliers}
         locations={locations}
         existingSkus={existingSkus}
@@ -403,7 +419,7 @@ function CatalogPage() {
         open={!!detailItem}
         onOpenChange={(v) => { if (!v) closeDetail(); }}
         item={detailItem}
-        categories={categories}
+        categories={filteredCategories}
         suppliers={suppliers}
         locations={locations}
         onEdit={(item) => { closeDetail(); openEdit(item); }}
@@ -441,7 +457,7 @@ function CatalogPage() {
       <PermissionGate permission="edit_item">
         <BulkActionBar
           selectedCount={selected.size}
-          categories={categories}
+          categories={filteredCategories}
           suppliers={suppliers}
           locations={locations}
           onUpdateCategory={(id) => handleBulkUpdate({ categoryId: id })}
@@ -473,7 +489,7 @@ function CatalogPage() {
         fields={importFields}
         entityName="items"
         existingSkus={existingSkus}
-        knownCategories={categories.map((c) => c.name)}
+        knownCategories={filteredCategories.map((c) => c.name)}
         knownSuppliers={suppliers.map((s) => s.name)}
         onImport={async (rows) => {
           let created = 0;

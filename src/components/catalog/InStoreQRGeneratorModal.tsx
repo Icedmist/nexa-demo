@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useDemo } from "@/hooks/useDemo";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import { useSector } from "@/hooks/useSector";
 import { useCategories, useLocations } from "@/hooks/useInventoryData";
 import {
   Dialog,
@@ -45,7 +46,12 @@ export function InStoreQRGeneratorModal({ open, onOpenChange }: InStoreQRGenerat
   const storeSlug = getCleanStoreSlug(activeSettings.storeSlug, activeSettings.storeName);
   const storeName = activeSettings.storeName || "Our Store";
 
-  const [sector, setSector] = useState<"restaurant" | "supermarket" | "pharmacy" | "vet" | "retail">("restaurant");
+  const currentSector = useSector();
+  const initialSector = (["restaurant", "supermarket", "pharmacy", "vet", "retail"].includes(currentSector.type) 
+    ? currentSector.type 
+    : "retail") as "restaurant" | "supermarket" | "pharmacy" | "vet" | "retail";
+
+  const [sector, setSector] = useState<"restaurant" | "supermarket" | "pharmacy" | "vet" | "retail">(initialSector);
   const [label, setLabel] = useState("Table 1");
   const [targetCategory, setTargetCategory] = useState<string>("all");
   const [selectedBranchId, setSelectedBranchId] = useState<string>("main");

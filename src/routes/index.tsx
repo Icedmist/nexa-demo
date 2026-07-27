@@ -570,9 +570,8 @@ function LandingPage() {
           if (storeSnap.exists()) {
             const storeData = storeSnap.data();
             const slug = getCleanStoreSlug(storeData.storeSlug, storeData.storeName);
-            const storeUrl = getStorefrontUrl(slug, "/app/dashboard");
             toast.info(`Redirecting to your store portal (${storeData.storeName || slug})...`);
-            window.location.href = storeUrl;
+            navigate({ to: "/app/dashboard" });
           } else {
             navigate({ to: "/app/dashboard" });
           }

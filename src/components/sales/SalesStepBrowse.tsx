@@ -761,7 +761,9 @@ export function SalesStepBrowse({
               (item.restaurant?.spiceLevels && item.restaurant.spiceLevels.length > 0) ||
               item.restaurant?.isCombo
             );
-            const hasVariants = !!(item.color || item.sizes) || effectiveConversions.length > 0;
+            const isBoutiqueCategory = item.category && ["clothing", "shoes", "boutique", "fashion", "apparel", "dresses", "tops", "bottoms", "wears"].some(c => item.category?.toLowerCase().includes(c));
+            const isBoutiqueItem = onboarding?.businessType === "boutique" || isBoutiqueCategory;
+            const hasVariants = !!(item.color || item.sizes) || effectiveConversions.length > 0 || isBoutiqueItem;
 
             // Render inline multi-unit panel if editing mode is active for this item
             if (inlineEditingItemId === item.id) {

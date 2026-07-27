@@ -714,7 +714,7 @@ export function SalesQuickScanCheckout() {
           </div>
 
           {/* Paper Ticket Wrapper */}
-          <div className="bg-white dark:bg-black/30 border border-neutral-200 dark:border-neutral-800 p-5 rounded-2xl relative shadow-sm text-left font-mono text-xs text-neutral-800 dark:text-neutral-200">
+          <div className="receipt-print-area bg-white dark:bg-black/30 border border-neutral-200 dark:border-neutral-800 p-5 rounded-2xl relative shadow-sm text-left font-mono text-xs text-neutral-800 dark:text-neutral-200">
             {/* Edge border indicators */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 h-3.5 w-24 bg-primary rounded-b-lg flex items-center justify-center text-[7px] text-white font-sans font-extrabold tracking-widest">
               NEXA GATEPASS
@@ -780,8 +780,25 @@ export function SalesQuickScanCheckout() {
           <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline" 
-              className="h-10 rounded-xl gap-2 text-xs"
-              onClick={() => window.print()}
+              className="h-10 rounded-xl gap-2 text-xs print:hidden"
+              onClick={() => {
+                document.body.classList.add("is-printing-receipt");
+                requestAnimationFrame(() => {
+                  setTimeout(() => {
+                    try {
+                      window.print();
+                    } catch (e) {
+                      console.error("Print error:", e);
+                    }
+                  }, 50);
+                });
+                const cleanup = () => {
+                  document.body.classList.remove("is-printing-receipt");
+                  window.removeEventListener("afterprint", cleanup);
+                };
+                window.addEventListener("afterprint", cleanup);
+                setTimeout(cleanup, 4000);
+              }}
             >
               <Printer className="h-4 w-4" /> Print Ticket
             </Button>

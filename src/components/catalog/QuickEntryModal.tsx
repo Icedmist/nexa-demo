@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCategories, useSuppliers } from "@/hooks/useInventoryData";
+import { useSector } from "@/hooks/useSector";
 import { useCreateItem } from "@/hooks/useInventoryMutations";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { useDemo } from "@/hooks/useDemo";
@@ -181,12 +182,19 @@ export function QuickEntryModal({ open, onOpenChange }: QuickEntryModalProps) {
   const [elecWarrantyInput, setElecWarrantyInput] = useState("12 Months");
   const [elecCompatibilityInput, setElecCompatibilityInput] = useState("");
 
+  const sector = useSector();
   const getCategoryType = (name: string) => {
+    if (sector.type === "pharmacy") return "pharmacy";
+    if (sector.type === "electronics") return "electronics";
+    if (sector.type === "boutique" || sector.type === "textile") return "clothing";
+    if (sector.type === "agriculture") return "agriculture";
+    if (sector.type === "restaurant") return "restaurant";
+
     const norm = name.toLowerCase();
     if (norm.includes("fashion") || norm.includes("clothing") || norm.includes("apparel") || norm.includes("textile") || norm.includes("cotton") || norm.includes("lace") || norm.includes("silk") || norm.includes("print")) {
       return "clothing";
     }
-    if (norm.includes("pharmacy") || norm.includes("medical")) {
+    if (sector.type === "pharmacy" && (norm.includes("pharmacy") || norm.includes("medical"))) {
       return "pharmacy";
     }
     if (norm.includes("grocery") || norm.includes("groceries") || norm.includes("beverage") || norm.includes("dairy") || norm.includes("food") || norm.includes("drink")) {
@@ -213,7 +221,22 @@ export function QuickEntryModal({ open, onOpenChange }: QuickEntryModalProps) {
 
   const createItem = useCreateItem();
   const { data: currentCategories } = useCategories();
-  const firstCategory = currentCategories?.[0]?.id || null;
+  const filteredCategories = useMemo(() => {
+    if (!currentCategories) return [];
+    if (sector.type !== "pharmacy") {
+      return currentCategories.filter((c) => {
+        const norm = (c.name || "").toLowerCase() + " " + (c.id || "").toLowerCase();
+        return (
+          !norm.includes("pharmacy") &&
+          !norm.includes("medicine") &&
+          !norm.includes("pharmaceutical") &&
+          !norm.includes("prescription")
+        );
+      });
+    }
+    return currentCategories;
+  }, [currentCategories, sector.type]);
+  const firstCategory = filteredCategories?.[0]?.id || null;
 
   // Simulate barcode scanner laser line animation
   const [laserPosition, setLaserPosition] = useState(0);
@@ -663,7 +686,7 @@ export function QuickEntryModal({ open, onOpenChange }: QuickEntryModalProps) {
                   {/* Smart Category Prediction Banner */}
                   {(() => {
                     if (!productName || productName.trim().length < 2) return null;
-                    const pred = predictCategoryAndUnit(productName, currentCategories || []);
+                    const pred = predictCategoryAndUnit(productName, filteredCategories || [], sector.type);
                     if (!pred || pred.confidence === "low") return null;
                     return (
                       <div className="mt-2 p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-950/40 text-xs flex items-center justify-between gap-2">
@@ -708,7 +731,7 @@ export function QuickEntryModal({ open, onOpenChange }: QuickEntryModalProps) {
                       className="w-full bg-neutral-950 border border-neutral-800 text-white h-10 rounded-xl px-3 outline-none focus:border-emerald-500 text-xs cursor-pointer"
                     >
                       <option value="">Select Category...</option>
-                      {currentCategories?.map((cat) => (
+                      {filteredCategories?.map((cat) => (
                         <option key={cat.id} value={cat.name}>
                           {cat.name}
                         </option>

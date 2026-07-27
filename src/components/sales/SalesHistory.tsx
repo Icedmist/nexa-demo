@@ -417,7 +417,7 @@ export function SalesHistoryPage() {
             <SheetTitle>Sale Details</SheetTitle>
           </SheetHeader>
           {selectedSale && (
-            <div className="mt-4 space-y-4">
+            <div className="receipt-print-area mt-4 space-y-4">
               <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-1.5">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Receipt #</span>
@@ -486,8 +486,29 @@ export function SalesHistoryPage() {
               </div>
 
               {/* Actions */}
-              <div className="space-y-2 pt-2">
-                <Button variant="outline" className="w-full gap-2" onClick={() => window.print()}>
+              <div className="space-y-2 pt-2 print:hidden">
+                <Button 
+                  variant="outline" 
+                  className="w-full gap-2" 
+                  onClick={() => {
+                    document.body.classList.add("is-printing-receipt");
+                    requestAnimationFrame(() => {
+                      setTimeout(() => {
+                        try {
+                          window.print();
+                        } catch (e) {
+                          console.error("Print error:", e);
+                        }
+                      }, 50);
+                    });
+                    const cleanup = () => {
+                      document.body.classList.remove("is-printing-receipt");
+                      window.removeEventListener("afterprint", cleanup);
+                    };
+                    window.addEventListener("afterprint", cleanup);
+                    setTimeout(cleanup, 4000);
+                  }}
+                >
                   <Printer className="h-4 w-4" /> Print Receipt
                 </Button>
                 <Button

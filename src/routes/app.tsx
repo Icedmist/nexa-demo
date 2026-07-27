@@ -35,7 +35,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 function AppLayout() {
   const { isDemo, enterDemoMode } = useDemo();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, markOnboardingCompleted } = useAuth();
   const { settings, loading: settingsLoading, setupStore } = useSystemSettings();
   const { role, isOwner, isAdmin, isSuperAdmin, permissions } = useRole();
   const navigate = useNavigate();
@@ -272,12 +272,7 @@ function AppLayout() {
       }
       
       // Also update admin's personal onboarding status
-      if (user) {
-        await updateDoc(doc(db, "users", user.uid), {
-          onboardingCompleted: true,
-          updatedAt: new Date().toISOString()
-        });
-      }
+      await markOnboardingCompleted();
 
       sessionStorage.setItem("stackwise-just-onboarded", "true");
       setForceOnboarding(false);
@@ -291,16 +286,15 @@ function AppLayout() {
   };
 
   const handleMemberOnboardingComplete = async () => {
-    if (!user) return;
     try {
-      await updateDoc(doc(db, "users", user.uid), {
-        onboardingCompleted: true,
-        updatedAt: new Date().toISOString()
-      });
+      await markOnboardingCompleted();
       setMemberOnboarding(false);
+      handleOptionRoute();
     } catch (err) {
       console.error("Failed to update onboarding status", err);
-      toast.error("Failed to complete onboarding.");
+      // Fallback local close so user is never stuck
+      setMemberOnboarding(false);
+      handleOptionRoute();
     }
   };
 
@@ -348,13 +342,16 @@ function AppLayout() {
           categories: settings.categories || []
         });
       }
-      await handleMemberOnboardingComplete();
+      await markOnboardingCompleted();
       setForceOnboarding(false);
       setMemberOnboarding(false);
       handleOptionRoute("skip");
     } catch (err) {
       console.error("Failed to skip onboarding", err);
-      toast.error("Failed to update onboarding status.");
+      await markOnboardingCompleted();
+      setForceOnboarding(false);
+      setMemberOnboarding(false);
+      handleOptionRoute("skip");
     }
   };
 

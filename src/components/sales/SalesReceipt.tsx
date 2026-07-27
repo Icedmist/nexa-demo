@@ -246,10 +246,26 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
   const isRepayment = sale.isDebtSettlement || sale.id.startsWith("repay-");
 
   const handlePrint = () => {
-    // Add temporary print class to body to help CSS if needed
     document.body.classList.add("is-printing-receipt");
-    window.print();
-    setTimeout(() => document.body.classList.remove("is-printing-receipt"), 1000);
+    
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        try {
+          window.print();
+        } catch (err) {
+          console.error("Print error:", err);
+          toast.error("Could not open print dialog");
+        }
+      }, 50);
+    });
+
+    const cleanup = () => {
+      document.body.classList.remove("is-printing-receipt");
+      window.removeEventListener("afterprint", cleanup);
+    };
+
+    window.addEventListener("afterprint", cleanup);
+    setTimeout(cleanup, 4000);
   };
 
   // Auto-trigger print on modal mount

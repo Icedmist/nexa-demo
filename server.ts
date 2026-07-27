@@ -6,10 +6,10 @@ import { resolvePrice } from "./src/utils/pricing";
 import { runScheduledReportsEvaluation, generateReportDataAndPDF, GmailApiEmailProvider } from "./src/utils/reportsBackend";
 import { resolveFeatureFlags } from "./src/utils/subscriptionUtils";
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+export const app = express();
+const PORT = 3000;
 
+async function startServer() {
   // Middleware to parse JSON
   app.use(express.json());
 
@@ -2335,13 +2335,13 @@ Respond ONLY with valid JSON conforming to this structure:
   });
 
   // Vite middleware or production build router serving
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (!process.env.VERCEL) {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.use((req, res, next) => {
@@ -2353,9 +2353,13 @@ Respond ONLY with valid JSON conforming to this structure:
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Express Server] Full-Stack server running active on http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`[Express Server] Full-Stack server running active on http://localhost:${PORT}`);
+    });
+  }
 }
+
+export default app;
 
 startServer();

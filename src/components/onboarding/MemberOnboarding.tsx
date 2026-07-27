@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { 
   Users, 
@@ -5,7 +6,7 @@ import {
   Shield, 
   User as UserIcon, 
   ArrowRight, 
-  CheckCircle2,
+  Loader2,
   Package,
   ShoppingCart,
   MessageSquare,
@@ -17,7 +18,7 @@ import { cn } from "@/lib/utils";
 interface MemberOnboardingProps {
   name: string;
   role: string;
-  onComplete: () => void;
+  onComplete: () => Promise<void> | void;
 }
 
 const ROLE_INFO: Record<string, { title: string; desc: string; icon: LucideIcon; color: string }> = {
@@ -49,6 +50,19 @@ const STEPS = [
 
 export function MemberOnboarding({ name, role, onComplete }: MemberOnboardingProps) {
   const info = ROLE_INFO[role] || ROLE_INFO.requestor;
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleStart = async () => {
+    if (isSubmitting) return;
+    try {
+      setIsSubmitting(true);
+      await onComplete();
+    } catch (err) {
+      console.error("Onboarding completion error:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm p-4">
@@ -96,8 +110,21 @@ export function MemberOnboarding({ name, role, onComplete }: MemberOnboardingPro
           ))}
         </div>
 
-        <Button onClick={onComplete} className="w-full h-12 text-base font-semibold gap-2">
-          Get Started <ArrowRight className="h-4 w-4" />
+        <Button 
+          onClick={handleStart} 
+          disabled={isSubmitting}
+          className="w-full h-12 text-base font-semibold gap-2"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Getting Ready...</span>
+            </>
+          ) : (
+            <>
+              Get Started <ArrowRight className="h-4 w-4" />
+            </>
+          )}
         </Button>
 
         <p className="text-[11px] text-center text-muted-foreground mt-4">

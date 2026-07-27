@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { SUPPORTED_UNITS } from "@/types/inventory";
+import { useSector } from "@/hooks/useSector";
 import { CATEGORY_PRESETS, getCategorySupportedUnits } from "@/utils/categorySuggestions";
 import {
   AlertDialog,
@@ -21,11 +22,17 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export function CategoryManager() {
+  const sector = useSector();
   const { data: categories } = useCategories();
   const { data: items } = useItems();
   const createCat = useCreateCategory();
   const updateCat = useUpdateCategory();
   const deleteCat = useDeleteCategory();
+
+  const relevantPresets = CATEGORY_PRESETS.filter((p) => {
+    if (sector.type !== "pharmacy" && p.id === "pharmacy") return false;
+    return true;
+  });
 
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
@@ -101,7 +108,7 @@ export function CategoryManager() {
                 <Sparkles className="h-3 w-3" /> Quick Industry Presets (One-tap category & unique units)
               </span>
               <div className="flex flex-wrap gap-1.5">
-                {CATEGORY_PRESETS.map((preset) => (
+                {relevantPresets.map((preset) => (
                   <button
                     key={preset.id}
                     type="button"

@@ -67,7 +67,7 @@ export function getStorefrontUrl(
     if (cleanPath.startsWith("/product/") || cleanPath.startsWith("product/")) {
       const productId = cleanPath.replace(/^\/?product\//, "");
       base = `${publicOrigin}/store/product/${productId}`;
-    } else if (cleanPath.startsWith("/store/")) {
+    } else if (cleanPath.startsWith("/store/") || cleanPath.startsWith("/app") || cleanPath.startsWith("/agents")) {
       base = `${publicOrigin}${cleanPath}`;
     } else {
       base = `${publicOrigin}/store/${cleanSlug}${cleanPath}`;

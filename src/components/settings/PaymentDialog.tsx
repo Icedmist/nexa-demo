@@ -8,7 +8,8 @@ import {
   Send, 
   Check, 
   Info,
-  ShieldCheck
+  ShieldCheck,
+  Clock
 } from "lucide-react";
 import { 
   Dialog, 

@@ -443,44 +443,157 @@ export function SalesGrid() {
               </div>
             )}
 
-            {isSupermarket && (
+            {onboarding?.businessType === "pharmacy" && (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-sm">
-                    🛒
+                  <div className="h-7 w-7 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-sm">
+                    💊
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-foreground">Supermarket & Store Till Matrix</span>
-                      <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-600 border-purple-500/30 px-1.5 py-0 font-bold">
-                        Multi-Counter Active
+                      <span className="text-xs font-bold text-foreground">Pharmacy Dispensing POS</span>
+                      <Badge variant="outline" className="text-[10px] bg-teal-500/10 text-teal-600 border-teal-500/30 px-1.5 py-0 font-bold">
+                        Rx & Expiry Active
                       </Badge>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">Department / Aisle index mapped with active till sales tracking.</p>
+                    <p className="text-[10px] text-muted-foreground">Dosage forms, OTC vs Prescription filter, batch and NaFDAC reg checks.</p>
                   </div>
                 </div>
+                <Badge variant="secondary" className="text-[10px] font-medium bg-teal-500/10 text-teal-600 border border-teal-500/20">
+                  NaFDAC / Batch Verification Ready
+                </Badge>
+              </div>
+            )}
 
-                <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl">
-                  <span className="text-[10px] font-bold text-muted-foreground px-1 uppercase tracking-wider">Till:</span>
-                  {["Till #1 - Main", "Till #2 - Express", "Till #3 - Self Scan"].map((tName) => (
-                    <button
-                      key={tName}
-                      type="button"
-                      onClick={() => {
-                        setSupermarketTill(tName);
-                        toast.success(`Switched to active register: ${tName}`);
-                      }}
-                      className={cn(
-                        "px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all",
-                        supermarketTill === tName
-                          ? "bg-purple-600 text-white shadow-xs"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {tName}
-                    </button>
-                  ))}
+            {onboarding?.businessType === "electronics" && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold text-sm">
+                    📱
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-foreground">Electronics & Gadget POS</span>
+                      <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-600 border-sky-500/30 px-1.5 py-0 font-bold">
+                        IMEI / Serial Mode
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Scan device IMEI/Serial codes at checkout with auto warranty slip.</p>
+                  </div>
                 </div>
+                <Badge variant="secondary" className="text-[10px] font-medium bg-sky-500/10 text-sky-600 border border-sky-500/20">
+                  Auto-Warranty Issued
+                </Badge>
+              </div>
+            )}
+
+            {onboarding?.businessType === "textile" && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm">
+                    ✂️
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-foreground">Textile & Fabric Roll POS</span>
+                      <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-600 border-indigo-500/30 px-1.5 py-0 font-bold">
+                        Yardage Calculator
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Cut fabric rolls by Yard / Meter with fractional stock deduction.</p>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-[10px] font-medium bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                  Yard / Meter Fractional Cut Enabled
+                </Badge>
+              </div>
+            )}
+
+            {onboarding?.businessType === "boutique" && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center font-bold text-sm">
+                    👗
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-foreground">Boutique & Fashion POS</span>
+                      <Badge variant="outline" className="text-[10px] bg-pink-500/10 text-pink-600 border-pink-500/30 px-1.5 py-0 font-bold">
+                        Size Variant Selector
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Select S, M, L, XL sizes and apparel style swatches on checkout.</p>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-[10px] font-medium bg-pink-500/10 text-pink-600 border border-pink-500/20">
+                  Fitting Room Variant Mode
+                </Badge>
+              </div>
+            )}
+
+            {onboarding?.businessType === "agriculture" && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-sm">
+                    🌾
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-foreground">Harvest & Agro Produce POS</span>
+                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 px-1.5 py-0 font-bold">
+                        Bulk Scale Mode
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Sell produce by Bag, Mudu, Tonne or Kg with moisture batch tracking.</p>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-[10px] font-medium bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                  Agro Bag & Mudu Converter
+                </Badge>
+              </div>
+            )}
+
+            {onboarding?.businessType === "manufacturing" && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold text-sm">
+                    🏭
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-foreground">Factory Dispatch POS</span>
+                      <Badge variant="outline" className="text-[10px] bg-orange-500/10 text-orange-600 border-orange-500/30 px-1.5 py-0 font-bold">
+                        BOM & Finished Goods
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Finished goods factory dispatch with production lot tracking.</p>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-[10px] font-medium bg-orange-500/10 text-orange-600 border border-orange-500/20">
+                  Production Lot Dispatch
+                </Badge>
+              </div>
+            )}
+
+            {onboarding?.businessType === "social_commerce" && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-green-500/10 text-green-600 dark:text-green-400 flex items-center justify-center font-bold text-sm">
+                    💬
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-foreground">Social Commerce & WhatsApp Sales</span>
+                      <Badge variant="outline" className="text-[10px] bg-green-500/10 text-green-600 border-green-500/30 px-1.5 py-0 font-bold">
+                        1-Click WA Invoice
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Generate instant WhatsApp order links and social media buyer receipts.</p>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-[10px] font-medium bg-green-500/10 text-green-600 border border-green-500/20">
+                  WhatsApp Direct Pay Active
+                </Badge>
               </div>
             )}
           </div>
@@ -721,6 +834,7 @@ export function SalesGrid() {
                     packagingFee={packagingFee}
                     estimatedReadyTime={estimatedReadyTime}
                     onBack={() => setStep("cart")}
+                    activeTier={activeTier}
                   />
                 ) : (
                   <SalesStepCart
@@ -805,6 +919,7 @@ export function SalesGrid() {
                   tableNumber={tableNumber}
                   packagingFee={packagingFee}
                   estimatedReadyTime={estimatedReadyTime}
+                  activeTier={activeTier}
                 />
               )}
             </div>

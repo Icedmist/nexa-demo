@@ -92,6 +92,55 @@ export const getBaseForSector = (sector: string) => {
           { id: "loc-sc-01", name: "Social Vendor Studio", type: "warehouse", parentId: null, description: "Main fulfillment center", address: "", isActive: true, createdAt: ts(120), updatedAt: ts(5) },
         ]
       };
+    case "pharmacy":
+      return {
+        categories: [
+          { id: "pharmaceuticals", name: "Pharmaceuticals & Prescription", description: "Prescription and clinical drugs", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box", "bottle", "vial"] },
+          { id: "otc_medicines", name: "OTC Pain & Cold Relief", description: "Over the counter everyday meds", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box", "bottle"] },
+          { id: "supplements", name: "Vitamins & Supplements", description: "Wellness and health boosters", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "bottle"] },
+          { id: "first_aid", name: "First Aid & Clinical", description: "Bandages, antiseptics, gloves", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box", "bottle"] },
+          { id: "baby_maternal", name: "Baby & Maternal Care", description: "Infant nutrition and mother care", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box", "can"] },
+        ],
+        suppliers: [
+          { id: "sup-ph-01", name: "Fidson Healthcare Distributors", contactName: "Dr. Kemi", email: "orders@fidson.com", phone: "08022334455", address: "Ikeja Industrial Estate", leadTimeDays: 2, rating: 4.8, isActive: true, createdAt: ts(120), updatedAt: ts(10) },
+          { id: "sup-ph-02", name: "GSK Pharma Wholesalers", contactName: "Emmanuel", email: "supply@gskwholesalers.ng", phone: "08033445566", address: "Apapa Lagos", leadTimeDays: 3, rating: 4.7, isActive: true, createdAt: ts(100), updatedAt: ts(5) },
+        ],
+        locations: [
+          { id: "loc-ph-01", name: "Main Counter Dispensary", type: "warehouse", parentId: null, description: "Active shelf dispensary", address: "", isActive: true, createdAt: ts(120), updatedAt: ts(5) },
+          { id: "loc-ph-02", name: "Clinical Cold Storage", type: "warehouse", parentId: null, description: "Refrigerated vaccines & syrups", address: "", isActive: true, createdAt: ts(100), updatedAt: ts(10) },
+        ]
+      };
+    case "electronics":
+      return {
+        categories: [
+          { id: "smartphones", name: "Smartphones & Mobile Devices", description: "iPhones, Samsung, Androids", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "box"] },
+          { id: "phone_accessories", name: "Chargers, Cables & Accessories", description: "Fast chargers, MagSafe, USB-C cables", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box"] },
+          { id: "audio_tech", name: "Headphones & Audio", description: "AirPods, Bluetooth speakers, TWS", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "box"] },
+          { id: "powerbanks", name: "Power Banks & Protection", description: "High-capacity powerbanks, screen protectors", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack"] },
+          { id: "computers", name: "Laptops & Computing", description: "MacBooks, Windows laptops, SSDs", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "box"] },
+        ],
+        suppliers: [
+          { id: "sup-el-01", name: "Computer Village Direct", contactName: "Chidi Electronics", email: "chidi@computervillage.ng", phone: "08066778899", address: "Ikeja Computer Village", leadTimeDays: 1, rating: 4.9, isActive: true, createdAt: ts(120), updatedAt: ts(10) },
+        ],
+        locations: [
+          { id: "loc-el-01", name: "Gadget Storefront Display", type: "warehouse", parentId: null, description: "Main counter & display cases", address: "", isActive: true, createdAt: ts(120), updatedAt: ts(5) },
+        ]
+      };
+    case "manufacturing":
+      return {
+        categories: [
+          { id: "raw_mats", name: "Raw Materials", description: "Chemicals, polymers, steel, alloys", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["kg", "ton", "ltr", "pcs"] },
+          { id: "packaging_mfg", name: "Packaging Supplies", description: "Cartons, wraps, bottles, labels", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box", "roll"] },
+          { id: "finished_goods", name: "Finished Product Line", description: "Manufactured goods ready for dispatch", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "carton", "box", "pallet"] },
+          { id: "spares_mfg", name: "Plant Spare Parts & Tools", description: "Industrial machine parts & lubricants", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "set", "keg"] },
+        ],
+        suppliers: [
+          { id: "sup-mf-01", name: "Industrial Polymers & Metals Ltd", contactName: "Engr. Nnamdi", email: "sales@industrialpolymers.ng", phone: "08033224411", address: "Ilupeju Industrial Estate", leadTimeDays: 5, rating: 4.6, isActive: true, createdAt: ts(120), updatedAt: ts(10) },
+        ],
+        locations: [
+          { id: "loc-mf-01", name: "Factory Floor Stockroom", type: "warehouse", parentId: null, description: "Assembly line supply bay", address: "", isActive: true, createdAt: ts(120), updatedAt: ts(5) },
+        ]
+      };
     case "general":
     default:
       return {
@@ -99,7 +148,7 @@ export const getBaseForSector = (sector: string) => {
           { id: "office", name: "Office Supplies", description: "Daily office needs", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box"] },
           { id: "tools", name: "Tools & Hardware", description: "Maintenance equipment", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box"] },
           { id: "it", name: "IT & Equipment", description: "Computers and networking", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box"] },
-          { id: "medical", name: "Medical Supplies", description: "Clinical inventory", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box", "vial"] },
+          { id: "packaging", name: "Packaging & Shipping", description: "Boxes, tape, and mailers", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "box", "roll"] },
           { id: "cleaning", name: "Cleaning Products", description: "Janitorial supplies", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs", "pack", "bottle", "ltr", "ml"] },
           { id: "misc", name: "Miscellaneous", description: "Uncategorized items", parentId: null, createdAt: ts(90), updatedAt: ts(90), supportedUnits: ["pcs"] },
         ],

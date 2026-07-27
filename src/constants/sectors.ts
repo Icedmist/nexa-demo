@@ -3,7 +3,8 @@ import {
   ShoppingBag, Truck, LayoutDashboard, Utensils, 
   FlaskConical, HardHat, Cpu, Package, History,
   TrendingUp, Users, Settings, HelpCircle,
-  FileText, ClipboardList, Store, LucideIcon
+  FileText, ClipboardList, Store, LucideIcon,
+  Scissors, Shirt, Warehouse, ShoppingCart
 } from "lucide-react";
 import { BusinessType } from "@/types/inventory";
 
@@ -38,6 +39,82 @@ export interface SectorConfig {
 }
 
 export const SECTOR_CONFIGS: Record<string, SectorConfig> = {
+  retail: {
+    id: BusinessType.Retail,
+    labels: {
+      dashboard: "Retail Store Hub",
+      catalog: "Product Catalog",
+      inventory: "Store Stock",
+      sales: "Counter POS",
+      customers: "Shoppers",
+      suppliers: "Distributors",
+      movements: "Stock Movement",
+      reports: "Sales Reports",
+      store: "Retail Storefront",
+      item: "Product",
+      unit: "Pcs/Pack",
+    },
+    icons: { catalog: Store, item: ShoppingBag },
+    features: { hasExpiry: false, hasBatches: false, hasTableBooking: false, hasProduction: false, hasWarranty: false, isFreshGood: false },
+    primaryAction: "Ring Sale",
+  },
+  boutique: {
+    id: BusinessType.Boutique,
+    labels: {
+      dashboard: "Boutique Studio",
+      catalog: "Apparel & Outfits",
+      inventory: "Rack Stock",
+      sales: "Fitting POS",
+      customers: "Fashion Clients",
+      suppliers: "Fashion Houses",
+      movements: "Stock Transfers",
+      reports: "Collection Trends",
+      store: "Boutique Showcase",
+      item: "Garment/Outfit",
+      unit: "Pcs/Pair",
+    },
+    icons: { catalog: Shirt, item: Shirt },
+    features: { hasExpiry: false, hasBatches: false, hasTableBooking: false, hasProduction: false, hasWarranty: false, isFreshGood: false },
+    primaryAction: "Add Outfit",
+  },
+  textile: {
+    id: BusinessType.Textile,
+    labels: {
+      dashboard: "Textile & Fabrics Hub",
+      catalog: "Fabrics & Prints",
+      inventory: "Yardage Rolls",
+      sales: "Fabrics POS",
+      customers: "Tailors & Designers",
+      suppliers: "Textile Mills",
+      movements: "Yardage Cut Log",
+      reports: "Fabric Analytics",
+      store: "Textile Catalog",
+      item: "Fabric/Ankara",
+      unit: "Yard/Meter/Bale",
+    },
+    icons: { catalog: Scissors, item: Scissors },
+    features: { hasExpiry: false, hasBatches: false, hasTableBooking: false, hasProduction: false, hasWarranty: false, isFreshGood: false },
+    primaryAction: "Log Fabric Roll",
+  },
+  wholesale: {
+    id: BusinessType.Wholesale,
+    labels: {
+      dashboard: "Wholesale Depot Command",
+      catalog: "Bulk Wholesale Catalog",
+      inventory: "Warehouse Pallets",
+      sales: "Wholesale Dispatches",
+      customers: "B2B Accounts",
+      suppliers: "Manufacturers",
+      movements: "Depot Transfers",
+      reports: "Volume & Margin Analytics",
+      store: "B2B Order Portal",
+      item: "Bulk Carton/Crate",
+      unit: "Carton/Crate/Pack",
+    },
+    icons: { catalog: Warehouse, item: Package },
+    features: { hasExpiry: false, hasBatches: true, hasTableBooking: false, hasProduction: false, hasWarranty: false, isFreshGood: false },
+    primaryAction: "Create Bulk Dispatch",
+  },
   agriculture: {
     id: BusinessType.Agriculture,
     labels: {

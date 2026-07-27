@@ -6,6 +6,9 @@ export enum BusinessType {
   Manufacturing = "manufacturing",
   Electronics = "electronics",
   SocialCommerce = "social_commerce",
+  Textile = "textile",
+  Boutique = "boutique",
+  Wholesale = "wholesale",
   General = "general",
 }
 

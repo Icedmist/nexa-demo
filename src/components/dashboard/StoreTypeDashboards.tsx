@@ -21,6 +21,10 @@ import {
   Receipt,
   CheckCircle2,
   Zap,
+  Smartphone,
+  ShieldCheck,
+  Shirt,
+  Tag,
 } from "lucide-react";
 
 interface StoreDashboardWidgetProps {
@@ -476,6 +480,172 @@ export function SupermarketDashboardWidget({ sales, items }: StoreDashboardWidge
             ))
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function ElectronicsDashboardWidget({ sales, items }: StoreDashboardWidgetProps) {
+  const deviceCount = useMemo(() => {
+    if (!items) return 0;
+    return items.filter(i => i.currentStock > 0).length;
+  }, [items]);
+
+  const totalSalesCount = sales?.length || 0;
+
+  return (
+    <div className="rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/5 via-card to-card p-5 space-y-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-bold text-xl">
+            📱
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-extrabold text-foreground tracking-tight">Electronics & Gadget Operations</h3>
+              <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-600 border-sky-500/30 font-bold px-2 py-0.5">
+                IMEI & Serial Active
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">IMEI serial tracking, device warranty status, accessories and fast gadget checkout.</p>
+          </div>
+        </div>
+
+        <Link to="/app/sales">
+          <Button size="sm" className="bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-sm">
+            <Zap className="h-3.5 w-3.5" />
+            Launch Gadget POS
+          </Button>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <Card className="border border-border/60 bg-card shadow-xs">
+          <CardContent className="p-4 space-y-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+              <span>Tracked Devices & Models</span>
+              <Smartphone className="h-4 w-4 text-sky-500" />
+            </div>
+            <div className="text-xl font-black text-foreground">{deviceCount} Models</div>
+            <p className="text-[10px] text-sky-600 font-bold">IMEI / Serial Logged</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/60 bg-card shadow-xs">
+          <CardContent className="p-4 space-y-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+              <span>Active Warranties</span>
+              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            </div>
+            <div className="text-xl font-black text-foreground">100% Verified</div>
+            <p className="text-[10px] text-emerald-600 font-bold">Warranty Period Enabled</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/60 bg-card shadow-xs">
+          <CardContent className="p-4 space-y-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+              <span>Device Sales Today</span>
+              <ShoppingCart className="h-4 w-4 text-purple-500" />
+            </div>
+            <div className="text-xl font-black text-foreground">{totalSalesCount} Transactions</div>
+            <p className="text-[10px] text-purple-600 font-bold">Gadget Receipts</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/60 bg-card shadow-xs">
+          <CardContent className="p-4 space-y-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+              <span>Accessories In Stock</span>
+              <Package className="h-4 w-4 text-amber-500" />
+            </div>
+            <div className="text-xl font-black text-foreground">Cases, Chargers & Audio</div>
+            <p className="text-[10px] text-muted-foreground font-medium">Fast Moving Stock</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+export function BoutiqueDashboardWidget({ sales, items }: StoreDashboardWidgetProps) {
+  const outfitCount = useMemo(() => {
+    if (!items) return 0;
+    return items.filter(i => i.currentStock > 0).length;
+  }, [items]);
+
+  const totalSalesCount = sales?.length || 0;
+
+  return (
+    <div className="rounded-2xl border border-pink-500/20 bg-gradient-to-br from-pink-500/5 via-card to-card p-5 space-y-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-2xl bg-pink-500/10 text-pink-600 dark:text-pink-400 flex items-center justify-center font-bold text-xl">
+            👗
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-extrabold text-foreground tracking-tight">Boutique & Fashion Studio</h3>
+              <Badge variant="outline" className="text-[10px] bg-pink-500/10 text-pink-600 border-pink-500/30 font-bold px-2 py-0.5">
+                Size & Style Matrix
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">Apparel rack inventory, size breakdown (S, M, L, XL), fitting room checkout and collections.</p>
+          </div>
+        </div>
+
+        <Link to="/app/sales">
+          <Button size="sm" className="bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-sm">
+            <Zap className="h-3.5 w-3.5" />
+            Launch Fitting POS
+          </Button>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <Card className="border border-border/60 bg-card shadow-xs">
+          <CardContent className="p-4 space-y-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+              <span>Rack Garments & Outfits</span>
+              <Shirt className="h-4 w-4 text-pink-500" />
+            </div>
+            <div className="text-xl font-black text-foreground">{outfitCount} Items</div>
+            <p className="text-[10px] text-pink-600 font-bold">On Display Racks</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/60 bg-card shadow-xs">
+          <CardContent className="p-4 space-y-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+              <span>Size Matrix</span>
+              <Tag className="h-4 w-4 text-purple-500" />
+            </div>
+            <div className="text-xl font-black text-foreground">S, M, L, XL, XXL</div>
+            <p className="text-[10px] text-purple-600 font-bold">Multi-Size Variants</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/60 bg-card shadow-xs">
+          <CardContent className="p-4 space-y-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+              <span>Fitting POS Sales</span>
+              <ShoppingCart className="h-4 w-4 text-emerald-500" />
+            </div>
+            <div className="text-xl font-black text-foreground">{totalSalesCount} Outfits Sold</div>
+            <p className="text-[10px] text-emerald-600 font-bold">Fashion Receipts</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border border-border/60 bg-card shadow-xs">
+          <CardContent className="p-4 space-y-1">
+            <div className="flex items-center justify-between text-muted-foreground text-xs font-medium">
+              <span>Collection Categories</span>
+              <Package className="h-4 w-4 text-amber-500" />
+            </div>
+            <div className="text-xl font-black text-foreground">Tops, Bottoms, Dresses, Shoes</div>
+            <p className="text-[10px] text-muted-foreground font-medium">Curated Stock</p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

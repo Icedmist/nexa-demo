@@ -201,7 +201,8 @@ export const CATEGORY_PRESETS: CategoryPreset[] = [
  */
 export function predictCategoryAndUnit(
   productName: string,
-  availableCategories: Category[] = []
+  availableCategories: Category[] = [],
+  businessType?: string
 ): {
   matchedCategory: Category | null;
   suggestedCategoryName: string;
@@ -220,6 +221,13 @@ export function predictCategoryAndUnit(
   }
 
   const query = productName.trim().toLowerCase();
+  const bizType = businessType || "general";
+
+  // Filter presets based on store business type (never suggest pharmacy to non-pharmacy)
+  const activePresets = CATEGORY_PRESETS.filter((p) => {
+    if (bizType !== "pharmacy" && p.id === "pharmacy") return false;
+    return true;
+  });
 
   // 0. Check self-trained learned keywords from local behavior
   try {
@@ -246,7 +254,7 @@ export function predictCategoryAndUnit(
   }
 
   // 1. Direct match with built-in product templates
-  for (const preset of CATEGORY_PRESETS) {
+  for (const preset of activePresets) {
     for (const p of preset.builtInProducts) {
       if (
         p.name.toLowerCase().includes(query) ||
@@ -275,7 +283,7 @@ export function predictCategoryAndUnit(
   let bestPreset: CategoryPreset | null = null;
   let highestScore = 0;
 
-  for (const preset of CATEGORY_PRESETS) {
+  for (const preset of activePresets) {
     let score = 0;
     for (const kw of preset.keywords) {
       if (query.includes(kw)) {
@@ -347,15 +355,37 @@ export function getCategorySupportedUnits(
 }
 
 /**
- * Returns all built-in product suggestions across presets or filtered by category.
+ * Returns all built-in product suggestions across presets or filtered by category and business type.
  */
-export function getBuiltInProductSuggestions(categoryNameOrId?: string): BuiltInProduct[] {
+export function getBuiltInProductSuggestions(categoryNameOrId?: string, businessType?: string): BuiltInProduct[] {
+  const bizType = businessType || "general";
+  
+  // Filter presets relevant to store sector
+  let activePresets = CATEGORY_PRESETS.filter((p) => {
+    if (bizType !== "pharmacy" && p.id === "pharmacy") return false;
+    return true;
+  });
+
+  if (bizType === "boutique") {
+    activePresets = activePresets.filter((p) => p.id === "fashion" || p.id === "textiles");
+  } else if (bizType === "textile") {
+    activePresets = activePresets.filter((p) => p.id === "textiles" || p.id === "fashion");
+  } else if (bizType === "electronics") {
+    activePresets = activePresets.filter((p) => p.id === "electronics");
+  } else if (bizType === "restaurant") {
+    activePresets = activePresets.filter((p) => p.id === "restaurant" || p.id === "beverages");
+  } else if (bizType === "agriculture") {
+    activePresets = activePresets.filter((p) => p.id === "agriculture" || p.id === "groceries");
+  } else if (bizType === "pharmacy") {
+    activePresets = activePresets.filter((p) => p.id === "pharmacy" || p.id === "groceries" || p.id === "beverages");
+  }
+
   if (!categoryNameOrId || categoryNameOrId === "all") {
-    return CATEGORY_PRESETS.flatMap((p) => p.builtInProducts);
+    return activePresets.flatMap((p) => p.builtInProducts);
   }
 
   const search = categoryNameOrId.toLowerCase();
-  const preset = CATEGORY_PRESETS.find(
+  const preset = activePresets.find(
     (p) =>
       p.id === search ||
       p.name.toLowerCase().includes(search) ||

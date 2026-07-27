@@ -109,17 +109,32 @@ export function ItemFormSheet({
   const [warrantyPeriod, setWarrantyPeriod] = useState("");
   const [accessoryType, setAccessoryType] = useState("");
 
+  const isPharmacy = onboarding?.businessType === "pharmacy";
+
   const filteredCategories = useMemo(() => {
+    let result = categories;
+    const bizType = onboarding?.businessType || "general";
+
+    if (bizType !== "pharmacy") {
+      result = result.filter((c) => {
+        const norm = (c.name || "").toLowerCase() + " " + (c.id || "").toLowerCase();
+        return (
+          !norm.includes("pharmacy") &&
+          !norm.includes("medicine") &&
+          !norm.includes("pharmaceutical") &&
+          !norm.includes("prescription")
+        );
+      });
+    }
+
     if (isPhoneAccessoriesSeller) {
       const accessoriesIds = ["accessories", "cases", "chargers", "audio", "protection", "powerbanks"];
-      const matched = categories.filter(c => accessoriesIds.includes(c.id));
-      return matched.length > 0 ? matched : categories;
+      const matched = result.filter((c) => accessoriesIds.includes(c.id));
+      if (matched.length > 0) return matched;
     }
-    return categories;
-  }, [categories, isPhoneAccessoriesSeller]);
 
-  // Restaurant fields states
-  const isPharmacy = onboarding?.businessType === "pharmacy";
+    return result;
+  }, [categories, onboarding?.businessType, isPhoneAccessoriesSeller]);
 
   // Pharmacy field states
   const [expiryDate, setExpiryDate] = useState("");
@@ -258,8 +273,8 @@ export function ItemFormSheet({
 
   const smartPrediction = useMemo(() => {
     if (!name || name.trim().length < 2 || isEdit) return null;
-    return predictCategoryAndUnit(name, categories);
-  }, [name, categories, isEdit]);
+    return predictCategoryAndUnit(name, filteredCategories, onboarding?.businessType);
+  }, [name, filteredCategories, isEdit, onboarding?.businessType]);
 
   const handleApplySmartPrediction = () => {
     if (!smartPrediction) return;
@@ -1075,7 +1090,7 @@ export function ItemFormSheet({
                         <Sparkles className="h-3 w-3 text-amber-500" /> Built-in Product Suggestions ({selectedCategory?.name || "All Categories"}):
                       </span>
                       <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 bg-muted/20 dark:bg-muted/10 rounded-xl border border-border/50">
-                        {getBuiltInProductSuggestions(selectedCategory?.name || selectedCategoryId).map((p, idx) => (
+                        {getBuiltInProductSuggestions(selectedCategory?.name || selectedCategoryId, onboarding?.businessType).map((p, idx) => (
                           <button
                             key={idx}
                             type="button"

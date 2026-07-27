@@ -46,6 +46,7 @@ interface AuthContextValue {
   updateProfileDescription: (description: string) => Promise<void>;
   sendPasswordReset: (email?: string) => Promise<void>;
   updateUserPassword: (password: string) => Promise<void>;
+  markOnboardingCompleted: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -490,8 +491,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     toast.success("Password updated successfully");
   };
 
+  const markOnboardingCompleted = async () => {
+    if (!user) {
+      setProfile((prev) => prev ? { ...prev, onboardingCompleted: true } : prev);
+      return;
+    }
+    try {
+      const profileRef = doc(db, "users", user.uid);
+      await setDoc(profileRef, { 
+        onboardingCompleted: true, 
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+    } catch (e) {
+      console.warn("Failed to set onboardingCompleted in Firestore:", e);
+    } finally {
+      setProfile((prev) => prev ? { ...prev, onboardingCompleted: true } : prev);
+      const cachedStr = localStorage.getItem("nexa_profile_" + user.uid);
+      if (cachedStr) {
+        try {
+          const cached = JSON.parse(cachedStr);
+          cached.onboardingCompleted = true;
+          localStorage.setItem("nexa_profile_" + user.uid, JSON.stringify(cached));
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isPreloading, preloaderMessage, triggerPreloader, login, register, logout, updateProfileName, updateProfileDescription, sendPasswordReset, updateUserPassword }}>
+    <AuthContext.Provider value={{ user, profile, loading, isPreloading, preloaderMessage, triggerPreloader, login, register, logout, updateProfileName, updateProfileDescription, sendPasswordReset, updateUserPassword, markOnboardingCompleted }}>
       <CompanyPreloader
         show={isPreloading}
         message={preloaderMessage}

@@ -208,9 +208,24 @@ function AiAssistantPage() {
       if (res.ok) {
         const data = await res.json();
         setLedger(data);
+      } else {
+        setLedger({
+          storeId: activeStoreId,
+          period: new Date().toISOString().slice(0, 7),
+          creditsIncluded: 100,
+          creditsUsed: 0,
+          creditsPurchased: 0,
+        });
       }
     } catch (err) {
-      console.error("Failed to fetch credits ledger:", err);
+      console.warn("Using offline default credits ledger:", err);
+      setLedger({
+        storeId: activeStoreId,
+        period: new Date().toISOString().slice(0, 7),
+        creditsIncluded: 100,
+        creditsUsed: 0,
+        creditsPurchased: 0,
+      });
     }
   }, [currentStoreId]);
 

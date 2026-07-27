@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { createFileRoute, Link, useNavigate, useLocation } from "@tanstack/react-router";
-import { Package, CheckCircle2, AlertTriangle, XCircle, ChevronDown, DollarSign, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store, Plus, Send, ClipboardList, Settings as SettingsIcon, LayoutGrid, Search as SearchIcon, History, User, Sprout, Scissors, Sun, Moon, Globe, Zap, ChevronsUpDown } from "lucide-react";
+import { Package, CheckCircle2, AlertTriangle, XCircle, ChevronDown, DollarSign, Users, TrendingUp, ShoppingCart, TrendingDown, Receipt, Clock, Store, Plus, Send, ClipboardList, Settings as SettingsIcon, LayoutGrid, Search as SearchIcon, History, User, Sprout, Scissors, Sun, Moon, Globe, Zap, ChevronsUpDown, Smartphone, Shirt } from "lucide-react";
 import { toast } from "sonner";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { NeedsAttention } from "@/components/dashboard/NeedsAttention";
@@ -28,7 +28,7 @@ import { useRole } from "@/hooks/useRole";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { useOnboarding, type TourStep } from "@/hooks/useOnboarding";
 import { useStoreType } from "@/hooks/useStoreType";
-import { WholesalerDashboardWidget, RetailerDashboardWidget, SupermarketDashboardWidget } from "@/components/dashboard/StoreTypeDashboards";
+import { WholesalerDashboardWidget, RetailerDashboardWidget, SupermarketDashboardWidget, ElectronicsDashboardWidget, BoutiqueDashboardWidget } from "@/components/dashboard/StoreTypeDashboards";
 
 const NAIRA = "₦";
 const USD_TO_NGN = 1;
@@ -511,6 +511,30 @@ export function DashboardPage() {
           onToggle={toggleSection}
         >
           <TextileDashboard />
+        </AccordionSection>
+      )}
+
+      {onboarding?.businessType === "electronics" && (
+        <AccordionSection
+          id="domain-dashboard"
+          title="Electronics & Gadgets Command"
+          icon={Smartphone}
+          isOpen={openSections["domain-dashboard"] ?? true}
+          onToggle={toggleSection}
+        >
+          <ElectronicsDashboardWidget sales={sales} items={items} customers={customers} creditsList={creditsList} />
+        </AccordionSection>
+      )}
+
+      {onboarding?.businessType === "boutique" && (
+        <AccordionSection
+          id="domain-dashboard"
+          title="Boutique Studio & Fashion Rack"
+          icon={Shirt}
+          isOpen={openSections["domain-dashboard"] ?? true}
+          onToggle={toggleSection}
+        >
+          <BoutiqueDashboardWidget sales={sales} items={items} customers={customers} creditsList={creditsList} />
         </AccordionSection>
       )}
 

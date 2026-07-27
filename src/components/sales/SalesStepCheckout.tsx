@@ -8,6 +8,7 @@ import { useDemo } from "@/hooks/useDemo";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { resolvePrice } from "@/utils/pricing";
 import type { Item, SaleTransaction } from "@/types/inventory";
 import type { Discount } from "@/types/finance";
 import { SalesReceipt } from "./SalesReceipt";
@@ -32,6 +33,7 @@ interface SalesStepCheckoutProps {
   packagingFee?: number;
   estimatedReadyTime?: number;
   onBack?: () => void;
+  activeTier?: "retail" | "wholesale" | "distributor";
 }
 
 import { useInventoryMutation } from "@/hooks/useInventoryMutation";
@@ -46,7 +48,8 @@ export function SalesStepCheckout({
   tableNumber = "4", 
   packagingFee = 0, 
   estimatedReadyTime = 0,
-  onBack
+  onBack,
+  activeTier = "retail"
 }: SalesStepCheckoutProps) {
   const { isDemo, demoStore, bumpVersion, onboarding: demoOnboarding } = useDemo();
   const { settings: liveSettings } = useSystemSettings();

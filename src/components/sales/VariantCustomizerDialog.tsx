@@ -19,6 +19,14 @@ interface VariantCustomizerDialogProps {
   onAddConfigured: (itemId: string, qty: number, unitId: string, configString: string) => void;
 }
 
+const DEFAULT_BOUTIQUE_COLORS = [
+  "Black", "White", "Navy", "Red", "Blue", "Beige", "Brown", "Grey", "Pink", "Green", "Yellow", "Gold", "Silver", "Purple"
+];
+
+const DEFAULT_BOUTIQUE_SIZES = [
+  "XS", "S", "M", "L", "XL", "XXL", "38", "39", "40", "41", "42", "43", "44", "45", "Free Size"
+];
+
 export function VariantCustomizerDialog({
   open,
   onOpenChange,
@@ -47,24 +55,25 @@ export function VariantCustomizerDialog({
 
   const updateItem = useUpdateItem();
 
-  const effectiveConversions = item ? getEffectiveUnitConversions(item) : [];
-
-  const colors = item?.color 
+  const itemColors = item?.color 
     ? item.color.split(",").map(c => c.trim()).filter(Boolean)
     : [];
 
-  const sizes = item?.sizes
+  const itemSizes = item?.sizes
     ? item.sizes.split(",").map(s => s.trim()).filter(Boolean)
     : [];
+
+  const colors = itemColors.length > 0 ? itemColors : DEFAULT_BOUTIQUE_COLORS;
+  const sizes = itemSizes.length > 0 ? itemSizes : DEFAULT_BOUTIQUE_SIZES;
 
   useEffect(() => {
     if (item && open) {
       const colorsList = item.color 
         ? item.color.split(",").map(c => c.trim()).filter(Boolean)
-        : [];
+        : DEFAULT_BOUTIQUE_COLORS;
       const sizesList = item.sizes
         ? item.sizes.split(",").map(s => s.trim()).filter(Boolean)
-        : [];
+        : DEFAULT_BOUTIQUE_SIZES;
 
       setSelectedColor(colorsList[0] || "");
       setSelectedSize(sizesList[0] || "");
@@ -230,13 +239,23 @@ export function VariantCustomizerDialog({
           {/* Colors Selection */}
           {colors.length > 0 && (
             <div className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Select Color
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Select Color {selectedColor && <span className="text-primary font-bold">({selectedColor})</span>}
+                </span>
+                {selectedColor && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedColor("")}
+                    className="text-[10px] text-muted-foreground hover:text-foreground font-semibold"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2">
                 {colors.map((color) => {
                   const isSelected = selectedColor === color;
-                  // Try to determine dynamic background color for preview
                   const cssColor = color.toLowerCase();
                   return (
                     <button
@@ -247,7 +266,7 @@ export function VariantCustomizerDialog({
                       className={cn(
                         "relative flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all duration-200 active:scale-95 shadow-sm",
                         isSelected
-                          ? "border-primary bg-primary/5 text-primary ring-1 ring-primary/30"
+                          ? "border-primary bg-primary/5 text-primary ring-1 ring-primary/30 font-bold"
                           : "border-border bg-card text-foreground hover:bg-muted/50"
                       )}
                     >
@@ -261,15 +280,33 @@ export function VariantCustomizerDialog({
                   );
                 })}
               </div>
+              <input
+                type="text"
+                value={selectedColor && !colors.includes(selectedColor) ? selectedColor : ""}
+                onChange={(e) => setSelectedColor(e.target.value)}
+                placeholder="Or type custom color (e.g. Maroon)..."
+                className="w-full h-8 bg-card text-xs rounded-lg border border-border px-2.5 outline-none focus:border-primary"
+              />
             </div>
           )}
 
           {/* Sizes Selection */}
           {sizes.length > 0 && (
             <div className="space-y-2">
-               <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                {isPhoneAccessoriesSeller ? "Select Compatible Model" : "Select Size"}
-               </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {isPhoneAccessoriesSeller ? "Select Compatible Model" : "Select Size"} {selectedSize && <span className="text-primary font-bold">({selectedSize})</span>}
+                </span>
+                {selectedSize && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSize("")}
+                    className="text-[10px] text-muted-foreground hover:text-foreground font-semibold"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2">
                 {sizes.map((sz) => {
                   const isSelected = selectedSize === sz;
@@ -291,6 +328,13 @@ export function VariantCustomizerDialog({
                   );
                 })}
               </div>
+              <input
+                type="text"
+                value={selectedSize && !sizes.includes(selectedSize) ? selectedSize : ""}
+                onChange={(e) => setSelectedSize(e.target.value)}
+                placeholder="Or type custom size (e.g. 42 / XL)..."
+                className="w-full h-8 bg-card text-xs rounded-lg border border-border px-2.5 outline-none focus:border-primary"
+              />
             </div>
           )}
 
