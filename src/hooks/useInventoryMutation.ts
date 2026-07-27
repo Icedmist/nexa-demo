@@ -4,6 +4,7 @@ import {
   updateDoc, 
   deleteDoc, 
   doc, 
+  getDoc,
   setDoc,
   runTransaction,
   serverTimestamp,
@@ -89,21 +90,17 @@ export function useInventoryMutation() {
       return;
     }
 
-    // In non-demo, let's trigger the notification record if enabled
+    // In non-demo, trigger notification asynchronously so it never blocks checkout speed
     if (salesNotificationsEnabled) {
-      try {
-        await addDoc(collection(db, "notifications"), {
-          storeId: activeStoreId || null,
-          type: "po_reminder",
-          title: "New POS Sale Logged",
-          message: `Processed successful transaction of ₦${sale.totalNgn.toLocaleString()} to ${sale.customerName}.`,
-          isRead: false,
-          link: "/app/sales-history",
-          createdAt: new Date().toISOString()
-        });
-      } catch (e) {
-        console.error("Failed to add sales notification", e);
-      }
+      addDoc(collection(db, "notifications"), {
+        storeId: activeStoreId || null,
+        type: "po_reminder",
+        title: "New POS Sale Logged",
+        message: `Processed successful transaction of ₦${sale.totalNgn.toLocaleString()} to ${sale.customerName || "Customer"}.`,
+        isRead: false,
+        link: "/app/sales-history",
+        createdAt: new Date().toISOString()
+      }).catch(e => console.error("Failed to add sales notification", e));
     }
 
     const isOffline = typeof window !== "undefined" && (localStorage.getItem("nexa_force_offline") === "true" || isFirebaseOffline);
@@ -148,8 +145,9 @@ export function useInventoryMutation() {
       return;
     }
 
+    // Try runTransaction with a 3.5s timeout; fall back to direct write if network stalls or takes long
     try {
-      await runTransaction(db, async (transaction) => {
+      const txnPromise = runTransaction(db, async (transaction) => {
         // 1. Pre-fetch all item stocks (READS)
         const itemSnaps = await Promise.all(
           sale.items.map(lineItem => transaction.get(doc(db, "items", lineItem.itemId)))
@@ -194,56 +192,52 @@ export function useInventoryMutation() {
           }
         });
       });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Transaction network timeout")), 3500)
+      );
+
+      await Promise.race([txnPromise, timeoutPromise]);
+      return;
     } catch (err) {
-      const errMsg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
-      const isNetwork = errMsg.includes("unavailable") || 
-                        errMsg.includes("could not reach") || 
-                        errMsg.includes("offline") || 
-                        errMsg.includes("network-request-failed") ||
-                        errMsg.includes("failed to get document") ||
-                        errMsg.includes("transaction failed");
+      console.warn("Transaction failed or timed out; proceeding with direct fast write:", err);
+      try {
+        const saleRef = doc(db, "sales", sale.id);
+        const cleanSale = JSON.parse(JSON.stringify(sale));
+        await setDoc(saleRef, {
+          ...cleanSale,
+          storeId: activeStoreId,
+          createdAt: serverTimestamp()
+        });
 
-      if (isNetwork) {
-        console.warn("Transaction failed due to network; falling back to offline write mode.");
-        try {
-          const saleRef = doc(db, "sales", sale.id);
-          const cleanSale = JSON.parse(JSON.stringify(sale));
-          await setDoc(saleRef, {
-            ...cleanSale,
-            storeId: activeStoreId,
-            createdAt: serverTimestamp()
-          });
+        await Promise.all(
+          sale.items.map(async (lineItem, index) => {
+            const itemRef = doc(db, "items", lineItem.itemId);
+            const reduction = lineItem.quantity * (lineItem.multiplier || 1);
+            await updateDoc(itemRef, {
+              currentStock: increment(-reduction),
+              updatedAt: serverTimestamp()
+            });
 
-          await Promise.all(
-            sale.items.map(async (lineItem, index) => {
-              const itemRef = doc(db, "items", lineItem.itemId);
-              const reduction = lineItem.quantity * (lineItem.multiplier || 1);
-              await updateDoc(itemRef, {
-                currentStock: increment(-reduction),
-                updatedAt: serverTimestamp()
-              });
-
-              const movementId = `mvt-${sale.id}-${lineItem.itemId}-${index}`;
-              await setDoc(doc(db, "movements", movementId), {
-                itemId: lineItem.itemId,
-                type: "shipped",
-                quantity: reduction,
-                fromLocationId: null,
-                toLocationId: null,
-                reference: sale.id,
-                notes: `Sold via ${sale.source === "social" ? "Storefront" : "POS"} (Offline Fallback)`,
-                performedBy: profile?.name || "System",
-                storeId: activeStoreId || null,
-                createdAt: serverTimestamp()
-              });
-            })
-          );
-          return;
-        } catch (offlineErr) {
-          handleFirestoreError(offlineErr, OperationType.WRITE, "sales/offline-transaction-fallback");
-        }
+            const movementId = `mvt-${sale.id}-${lineItem.itemId}-${index}`;
+            await setDoc(doc(db, "movements", movementId), {
+              itemId: lineItem.itemId,
+              type: "shipped",
+              quantity: reduction,
+              fromLocationId: null,
+              toLocationId: null,
+              reference: sale.id,
+              notes: `Sold via ${sale.source === "social" ? "Storefront" : "POS"} (Fast Fallback)`,
+              performedBy: profile?.name || "System",
+              storeId: activeStoreId || null,
+              createdAt: serverTimestamp()
+            });
+          })
+        );
+        return;
+      } catch (fallbackErr) {
+        handleFirestoreError(fallbackErr, OperationType.WRITE, "sales/transaction");
       }
-      handleFirestoreError(err, OperationType.WRITE, "sales/transaction");
     }
   };
 
@@ -254,11 +248,11 @@ export function useInventoryMutation() {
       return;
     }
 
+    const creditId = `credit-${phone.trim()}`;
+    const creditRef = doc(db, "credits", creditId);
+
     try {
-      const creditId = `credit-${phone.trim()}`;
-      const creditRef = doc(db, "credits", creditId);
-      
-      await runTransaction(db, async (transaction) => {
+      const txnPromise = runTransaction(db, async (transaction) => {
         const snap = await transaction.get(creditRef);
         let balanceNgn = 0;
         let transactions: CreditTransaction[] = [];
@@ -282,8 +276,40 @@ export function useInventoryMutation() {
           updatedAt: serverTimestamp()
         });
       });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Credit transaction network timeout")), 3500)
+      );
+
+      await Promise.race([txnPromise, timeoutPromise]);
+      return;
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `credits/${phone}`);
+      console.warn("Credit transaction timed out or failed; fallback to direct setDoc:", err);
+      try {
+        const snap = await getDoc(creditRef);
+        let balanceNgn = 0;
+        let transactions: CreditTransaction[] = [];
+        if (snap.exists()) {
+          const data = snap.data();
+          balanceNgn = data.balanceNgn || 0;
+          transactions = data.transactions || [];
+        }
+        const nextBalance = txn.type === "credit" ? balanceNgn + txn.amountNgn : balanceNgn - txn.amountNgn;
+        transactions.push(txn);
+
+        await setDoc(creditRef, {
+          id: creditId,
+          customerName: name,
+          customerPhone: phone,
+          balanceNgn: nextBalance,
+          transactions,
+          storeId: activeStoreId,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        return;
+      } catch (fallbackErr) {
+        handleFirestoreError(fallbackErr, OperationType.WRITE, `credits/${phone}`);
+      }
     }
   };
 

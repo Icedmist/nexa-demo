@@ -16,7 +16,8 @@ import {
   CheckCircle2, 
   Scan,
   AlertCircle,
-  Sparkles
+  Sparkles,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -218,6 +219,7 @@ export function SalesQuickScanCheckout() {
 
   const [scanInput, setScanInput] = useState("");
   const [scannedItems, setScannedItems] = useState<Map<string, number>>(new Map());
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
@@ -636,10 +638,13 @@ export function SalesQuickScanCheckout() {
   };
 
   const handleQuickCheckout = async () => {
+    if (isSubmitting) return;
     if (cartItems.length === 0) {
       toast.error("Scan items first before checking out.");
       return;
     }
+
+    setIsSubmitting(true);
 
     const orderId = `TXN-${Math.floor(100000 + Math.random() * 900000)}`;
     const sale: SaleTransaction = {
@@ -669,7 +674,9 @@ export function SalesQuickScanCheckout() {
       toast.success("Transaction verified & receipt compiled!");
     } catch (err) {
       console.error(err);
-      toast.error("Failed to commit quick checkout.");
+      toast.error(err instanceof Error ? err.message : "Failed to commit quick checkout.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1226,10 +1233,18 @@ export function SalesQuickScanCheckout() {
         <Button
           size="lg"
           onClick={handleQuickCheckout}
-          disabled={cartItems.length === 0}
+          disabled={cartItems.length === 0 || isSubmitting}
           className="w-full h-12 rounded-2xl font-black text-sm shadow-xl shadow-primary/25 tracking-wider bg-primary hover:brightness-110 flex items-center justify-center gap-2"
         >
-          <Check className="h-4 w-4" /> Verify & Complete Checkout
+          {isSubmitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Processing Checkout...
+            </>
+          ) : (
+            <>
+              <Check className="h-4 w-4" /> Verify & Complete Checkout
+            </>
+          )}
         </Button>
       </div>
 

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { User, Phone, CreditCard, Tag, Percent, Wallet, Banknote, Smartphone, ArrowLeft, AlertCircle } from "lucide-react";
+import { User, Phone, CreditCard, Tag, Percent, Wallet, Banknote, Smartphone, ArrowLeft, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,6 +69,7 @@ export function SalesStepCheckout({
   const [discount, setDiscount] = useState<Discount | null>(null);
   const [payOnCredit, setPayOnCredit] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "card">("cash");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Debt Dialog states
   const [showDebtPrompt, setShowDebtPrompt] = useState(false);
@@ -260,6 +261,8 @@ export function SalesStepCheckout({
   };
 
   const handleCheckout = async () => {
+    if (isSubmitting) return;
+
     if (payOnCredit) {
       if (!customerPhone.trim()) {
         toast.error("Phone number is required for credit sales");
@@ -271,83 +274,92 @@ export function SalesStepCheckout({
       }
     }
 
-    const sale: SaleTransaction = {
-      id: `sale-${Date.now()}`,
-      customerName: customerName.trim() || undefined,
-      customerPhone: customerPhone.trim() || undefined,
-      customerEmail: customerEmail.trim() || undefined,
-      items: items.map((ci) => {
-        const unit = ci.selectedUnit || ci.item.unit;
-        let multiplier = 1;
-        if (ci.selectedUnit && ci.selectedUnit !== ci.item.unit && ci.item.unitConversions) {
-          const conv = ci.item.unitConversions.find(c => c.unitId === ci.selectedUnit);
-          if (conv) multiplier = conv.multiplier;
-        }
+    setIsSubmitting(true);
 
-        let origPrice = resolvePrice(ci.item, onboarding?.pricingMode || "single", activeTier);
-        if (ci.selectedUnit && ci.selectedUnit !== ci.item.unit && ci.item.unitConversions) {
-          const conv = ci.item.unitConversions.find(c => c.unitId === ci.selectedUnit);
-          if (conv) {
-            origPrice = conv.priceNgn !== undefined 
-              ? conv.priceNgn / USD_TO_NGN 
-              : origPrice * conv.multiplier;
+    try {
+      const sale: SaleTransaction = {
+        id: `sale-${Date.now()}`,
+        customerName: customerName.trim() || undefined,
+        customerPhone: customerPhone.trim() || undefined,
+        customerEmail: customerEmail.trim() || undefined,
+        items: items.map((ci) => {
+          const unit = ci.selectedUnit || ci.item.unit;
+          let multiplier = 1;
+          if (ci.selectedUnit && ci.selectedUnit !== ci.item.unit && ci.item.unitConversions) {
+            const conv = ci.item.unitConversions.find(c => c.unitId === ci.selectedUnit);
+            if (conv) multiplier = conv.multiplier;
           }
-        }
-        const originalUnitPriceNgn = origPrice * USD_TO_NGN;
-        
-        const configDesc = ci.configStr ? ` (${formatConfigShort(ci.configStr)})` : "";
-        
-        return {
-          itemId: ci.item.id,
-          itemName: `${ci.item.name}${configDesc}`,
-          sku: ci.item.sku,
-          quantity: ci.quantity,
-          unit,
-          multiplier,
-          unitPriceNgn: (ci.calculatedUnitPrice ?? ci.item.sellingPrice) * USD_TO_NGN,
-          originalUnitPriceNgn,
-          imageUrl: ci.item.imageUrl ?? undefined,
-        };
-      }),
-      totalNgn: paymentDueTotal,
-      notes: onboarding?.businessType === "restaurant" ? `${diningMode === "dine-in" ? `Dine-in (Table ${tableNumber})` : diningMode === "takeaway" ? "Takeaway Order" : "Delivery Order"}${estimatedReadyTime > 0 ? ` - Cooking Ready: ~${estimatedReadyTime}m` : ""}` : undefined,
-      createdBy: user?.uid,
-      source: isDemo ? "demo" : "pos",
-      createdAt: new Date().toISOString(),
-      previousDebtPaidNgn: (includePreviousDebt && !payOnCredit) ? previousDebtAmount : undefined,
-    };
 
-    await addSale(sale);
-
-    if (isDemo && demoStore) {
-      if (promoApplied && promoCode) demoStore.usePromo(promoCode);
-    }
-
-    if (payOnCredit && customerPhone.trim()) {
-      await addCreditTransaction(customerPhone.trim(), customerName.trim() || "Unknown", {
-        id: `ctxn-${Date.now()}`,
-        type: "credit",
-        amountNgn: grandTotal,
-        saleId: sale.id,
-        notes: "Sale on credit",
+          let origPrice = resolvePrice(ci.item, onboarding?.pricingMode || "single", activeTier);
+          if (ci.selectedUnit && ci.selectedUnit !== ci.item.unit && ci.item.unitConversions) {
+            const conv = ci.item.unitConversions.find(c => c.unitId === ci.selectedUnit);
+            if (conv) {
+              origPrice = conv.priceNgn !== undefined 
+                ? conv.priceNgn / USD_TO_NGN 
+                : origPrice * conv.multiplier;
+            }
+          }
+          const originalUnitPriceNgn = origPrice * USD_TO_NGN;
+          
+          const configDesc = ci.configStr ? ` (${formatConfigShort(ci.configStr)})` : "";
+          
+          return {
+            itemId: ci.item.id,
+            itemName: `${ci.item.name}${configDesc}`,
+            sku: ci.item.sku,
+            quantity: ci.quantity,
+            unit,
+            multiplier,
+            unitPriceNgn: (ci.calculatedUnitPrice ?? ci.item.sellingPrice) * USD_TO_NGN,
+            originalUnitPriceNgn,
+            imageUrl: ci.item.imageUrl ?? undefined,
+          };
+        }),
+        totalNgn: paymentDueTotal,
+        notes: onboarding?.businessType === "restaurant" ? `${diningMode === "dine-in" ? `Dine-in (Table ${tableNumber})` : diningMode === "takeaway" ? "Takeaway Order" : "Delivery Order"}${estimatedReadyTime > 0 ? ` - Cooking Ready: ~${estimatedReadyTime}m` : ""}` : undefined,
+        createdBy: user?.uid,
+        source: isDemo ? "demo" : "pos",
         createdAt: new Date().toISOString(),
-      });
-    }
-    
-    // Handle previous debt payment consolidation
-    if (includePreviousDebt && previousDebtAmount > 0 && customerPhone.trim() && !payOnCredit) {
-      await addCreditTransaction(customerPhone.trim(), customerName.trim() || "Unknown", {
-        id: `ctxn-repay-${Date.now()}`,
-        type: "payment",
-        amountNgn: previousDebtAmount,
-        saleId: sale.id,
-        notes: "Previous debt cleared at checkout",
-        createdAt: new Date().toISOString(),
-      });
-    }
+        previousDebtPaidNgn: (includePreviousDebt && !payOnCredit) ? previousDebtAmount : undefined,
+      };
 
-    setLastSale(sale);
-    toast.success(`Sale recorded — ${NAIRA}${paymentDueTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`);
+      await addSale(sale);
+
+      if (isDemo && demoStore) {
+        if (promoApplied && promoCode) demoStore.usePromo(promoCode);
+      }
+
+      if (payOnCredit && customerPhone.trim()) {
+        await addCreditTransaction(customerPhone.trim(), customerName.trim() || "Unknown", {
+          id: `ctxn-${Date.now()}`,
+          type: "credit",
+          amountNgn: grandTotal,
+          saleId: sale.id,
+          notes: "Sale on credit",
+          createdAt: new Date().toISOString(),
+        });
+      }
+      
+      // Handle previous debt payment consolidation
+      if (includePreviousDebt && previousDebtAmount > 0 && customerPhone.trim() && !payOnCredit) {
+        await addCreditTransaction(customerPhone.trim(), customerName.trim() || "Unknown", {
+          id: `ctxn-repay-${Date.now()}`,
+          type: "payment",
+          amountNgn: previousDebtAmount,
+          saleId: sale.id,
+          notes: "Previous debt cleared at checkout",
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      setLastSale(sale);
+      toast.success(`Sale recorded — ${NAIRA}${paymentDueTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}`);
+    } catch (err) {
+      console.error("Sale transaction error:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to record sale. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (lastSale) {
@@ -648,9 +660,23 @@ export function SalesStepCheckout({
           <span className="font-mono">{NAIRA}{paymentDueTotal.toLocaleString("en-NG", { minimumFractionDigits: 0 })}</span>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleCheckout} className="flex-[2] gap-2 h-12 text-base rounded-xl" size="lg">
-            <CreditCard className="h-5 w-5" />
-            {payOnCredit ? "Record Credit Sale" : "Complete Sale"}
+          <Button 
+            onClick={handleCheckout} 
+            disabled={isSubmitting || items.length === 0} 
+            className="flex-[2] gap-2 h-12 text-base rounded-xl" 
+            size="lg"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Processing Sale...
+              </>
+            ) : (
+              <>
+                <CreditCard className="h-5 w-5" />
+                {payOnCredit ? "Record Credit Sale" : "Complete Sale"}
+              </>
+            )}
           </Button>
           {customerPhone.length >= 8 && (
             <Button variant="outline" onClick={handleWhatsAppShare} className="flex-1 h-12 rounded-xl border-green-600/30 text-green-700 hover:bg-green-50 hover:text-green-800" size="lg">

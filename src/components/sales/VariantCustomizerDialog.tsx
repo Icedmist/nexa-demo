@@ -55,6 +55,8 @@ export function VariantCustomizerDialog({
 
   const updateItem = useUpdateItem();
 
+  const effectiveConversions = item ? getEffectiveUnitConversions(item) : [];
+
   const itemColors = item?.color 
     ? item.color.split(",").map(c => c.trim()).filter(Boolean)
     : [];

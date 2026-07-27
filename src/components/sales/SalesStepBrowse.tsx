@@ -763,7 +763,7 @@ export function SalesStepBrowse({
             );
             const isBoutiqueCategory = item.category && ["clothing", "shoes", "boutique", "fashion", "apparel", "dresses", "tops", "bottoms", "wears"].some(c => item.category?.toLowerCase().includes(c));
             const isBoutiqueItem = onboarding?.businessType === "boutique" || isBoutiqueCategory;
-            const hasVariants = !!(item.color || item.sizes) || effectiveConversions.length > 0 || isBoutiqueItem;
+            const hasVariants = !!(item.color || item.sizes) || isBoutiqueItem;
 
             // Render inline multi-unit panel if editing mode is active for this item
             if (inlineEditingItemId === item.id) {
@@ -1225,9 +1225,16 @@ export function SalesStepBrowse({
                         </div>
 
                         <div className="flex items-center justify-between pt-0.5">
-                          <p className="text-xs font-bold text-foreground">
-                            {formatNaira(displayPrice)}
-                          </p>
+                          <div>
+                            <p className="text-xs font-bold text-foreground">
+                              {formatNaira(displayPrice)} <span className="text-[10px] text-muted-foreground font-normal">/ {currentUnit}</span>
+                            </p>
+                            {qty > 0 && (
+                              <p className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                                Total: {formatNaira(displayPrice * qty)}
+                              </p>
+                            )}
+                          </div>
                           <button
                             type="button"
                             onClick={() => handleOpenInlineAllUnits(item)}
@@ -1240,9 +1247,16 @@ export function SalesStepBrowse({
                       </div>
                     ) : (
                       <div className="flex items-center justify-between">
-                         <p className="text-sm font-bold text-foreground">
-                            {formatNaira(displayPrice)}
-                         </p>
+                         <div>
+                            <p className="text-sm font-bold text-foreground">
+                              {formatNaira(displayPrice)} <span className="text-[10px] text-muted-foreground font-normal">/ {currentUnit}</span>
+                            </p>
+                            {qty > 0 && (
+                              <p className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                                Total: {formatNaira(displayPrice * qty)}
+                              </p>
+                            )}
+                         </div>
                          {item.unit && item.unit !== "pcs" && (
                            <span className="text-[9px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded uppercase font-bold tracking-tight">
                              {item.unit}
@@ -1262,7 +1276,8 @@ export function SalesStepBrowse({
                   </div>
                 )}
 
-                {hasRestaurantConfig || hasVariants ? (
+                {/* Optional Customize Button for Items with Color/Size or Restaurant Options */}
+                {(hasRestaurantConfig || hasVariants) && (
                   <button
                     type="button"
                     onClick={() => {
@@ -1274,69 +1289,72 @@ export function SalesStepBrowse({
                         setVariantConfigOpen(true);
                       }
                     }}
-                    className="flex h-11 w-full items-center justify-center gap-1.5 border-t border-border text-xs font-bold text-primary hover:bg-primary/[0.03] transition-colors"
+                    className="flex h-7 w-full items-center justify-center gap-1 border-t border-border/60 bg-muted/30 hover:bg-muted/60 text-[10px] font-bold text-primary transition-colors shrink-0"
                   >
-                    <span>Customize</span>
+                    <SlidersHorizontal className="h-2.5 w-2.5" />
+                    <span>Customize Options</span>
                     {totalBadgeQty > 0 && (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-[9px] font-extrabold px-1 text-white">
+                      <span className="flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-primary text-[8px] font-extrabold px-1 text-white ml-0.5">
                         {totalBadgeQty}
                       </span>
                     )}
                   </button>
-                ) : (
-                  <div className="flex items-center border-t border-border mt-auto">
-                    <button
-                      type="button"
-                      disabled={qty === 0}
-                      onPointerDown={(e) => {
-                        if (e.pointerType === "mouse" && e.button !== 0) return;
-                        e.currentTarget.setPointerCapture(e.pointerId);
-                        startLongPress(() => onRemove(item.id, currentUnit));
-                      }}
-                      onPointerUp={(e) => {
-                        e.currentTarget.releasePointerCapture(e.pointerId);
-                        stopLongPress();
-                      }}
-                      onPointerLeave={stopLongPress}
-                      onPointerCancel={stopLongPress}
-                      className="flex h-11 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive disabled:opacity-20 active:scale-90"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
-                    <div className="flex-1 px-1">
-                      <input 
-                        type="number"
-                        value={qty === 0 ? "" : qty}
-                        placeholder="0"
-                        onChange={(e) => {
-                          let val = parseFloat(e.target.value);
-                          if (isNaN(val) || val < 0) val = 0;
-                          if (val > targetAvailableQty) val = targetAvailableQty;
-                          onAdd(item.id, Number(val.toFixed(2)), currentUnit);
-                        }}
-                        className="w-full text-center text-sm font-bold font-mono bg-transparent outline-none focus:text-primary transition-colors"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      disabled={isAddDisabled}
-                      onPointerDown={(e) => {
-                        if (e.pointerType === "mouse" && e.button !== 0) return;
-                        e.currentTarget.setPointerCapture(e.pointerId);
-                        startLongPress(() => handleAdd(item.id, undefined, currentUnit));
-                      }}
-                      onPointerUp={(e) => {
-                        e.currentTarget.releasePointerCapture(e.pointerId);
-                        stopLongPress();
-                      }}
-                      onPointerLeave={stopLongPress}
-                      onPointerCancel={stopLongPress}
-                      className="flex h-11 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary disabled:opacity-20 active:scale-90"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  </div>
                 )}
+
+                {/* Direct Plus, Minus & Direct Typing Quantity Control Bar */}
+                <div className="flex items-center border-t border-border mt-auto bg-card">
+                  <button
+                    type="button"
+                    disabled={qty === 0}
+                    onPointerDown={(e) => {
+                      if (e.pointerType === "mouse" && e.button !== 0) return;
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      startLongPress(() => onRemove(item.id, currentUnit));
+                    }}
+                    onPointerUp={(e) => {
+                      e.currentTarget.releasePointerCapture(e.pointerId);
+                      stopLongPress();
+                    }}
+                    onPointerLeave={stopLongPress}
+                    onPointerCancel={stopLongPress}
+                    className="flex h-11 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive disabled:opacity-20 active:scale-90"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <div className="flex-1 px-1">
+                    <input 
+                      type="number"
+                      value={qty === 0 ? "" : qty}
+                      placeholder="0"
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        let val = parseFloat(e.target.value);
+                        if (isNaN(val) || val < 0) val = 0;
+                        if (val > targetAvailableQty) val = targetAvailableQty;
+                        onAdd(item.id, Number(val.toFixed(2)), currentUnit);
+                      }}
+                      className="w-full text-center text-sm font-bold font-mono bg-transparent outline-none focus:text-primary transition-colors"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isAddDisabled}
+                    onPointerDown={(e) => {
+                      if (e.pointerType === "mouse" && e.button !== 0) return;
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      startLongPress(() => handleAdd(item.id, undefined, currentUnit));
+                    }}
+                    onPointerUp={(e) => {
+                      e.currentTarget.releasePointerCapture(e.pointerId);
+                      stopLongPress();
+                    }}
+                    onPointerLeave={stopLongPress}
+                    onPointerCancel={stopLongPress}
+                    className="flex h-11 flex-1 items-center justify-center text-muted-foreground transition-all hover:bg-primary/10 hover:text-primary disabled:opacity-20 active:scale-90"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             );
           })}

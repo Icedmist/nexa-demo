@@ -268,13 +268,7 @@ export function SalesReceipt({ sale, onClose }: SalesReceiptProps) {
     setTimeout(cleanup, 4000);
   };
 
-  // Auto-trigger print on modal mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handlePrint();
-    }, 600);
-    return () => clearTimeout(timer);
-  }, []);
+  // Print is triggered on demand via the Print button to prevent blocking window.print() calls
 
   const handleDownloadPDF = async () => {
     setDownloading(true);
