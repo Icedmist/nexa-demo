@@ -302,7 +302,7 @@ export function MovementsTable({ movements, itemNameMap, locationNameMap }: Move
     <TooltipProvider delayDuration={200}>
       <div>
         {renderDetailModal()}
-        <div className="overflow-x-auto rounded-md border border-border bg-white">
+        <div className="overflow-x-auto rounded-md border border-border bg-card">
           <Table>
             <TableHeader className="sticky top-0 bg-card">
               <TableRow>

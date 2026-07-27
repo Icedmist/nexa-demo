@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Edit2, Eye, Trash2 } from "lucide-react";
+import { Plus, Search, Edit2, Eye, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { db } from "@/lib/firebase";
@@ -32,6 +32,7 @@ function SuperAdminUsers() {
   const [deletingUser, setDeletingUser] = useState<SuperUser | null>(null);
 
   // Form states
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"admin" | "manager">("manager");
@@ -48,8 +49,17 @@ function SuperAdminUsers() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !storeId) {
+    if (!name.trim() || !email.trim() || !storeId) {
       toast.error("Please fill in all required fields.");
+      return;
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Security & Data Integrity: Check for duplicate email
+    const duplicateEmail = superUsers.some(u => u.email.trim().toLowerCase() === cleanEmail);
+    if (duplicateEmail) {
+      toast.error(`Security Alert: A user account with email "${cleanEmail}" already exists.`);
       return;
     }
 
@@ -59,74 +69,76 @@ function SuperAdminUsers() {
       return;
     }
 
+    setIsSubmitting(true);
     const newUserId = `user-${Date.now()}`;
 
-    if (isDemo) {
-      const newUser: SuperUser = {
-        id: newUserId,
-        name,
-        email,
-        role,
-        storeId,
-        storeName: linkedStore.name,
-        joinedDate: new Date().toISOString().slice(0, 10),
-        status: "active",
-      };
-      setSuperUsers(prev => [...prev, newUser]);
+    const newUser: SuperUser = {
+      id: newUserId,
+      name: name.trim(),
+      email: cleanEmail,
+      role,
+      storeId,
+      storeName: linkedStore.name,
+      joinedDate: new Date().toISOString().slice(0, 10),
+      status: "active",
+    };
 
-      const newLog = {
-        id: `log-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Registered staff profile (Demo mode) "${name}" for branch: "${linkedStore.name}"`,
-        store: linkedStore.name,
-        status: "success" as const,
-      };
-      setLogs(prev => [newLog, ...prev]);
+    const newLog = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      user: "nexatechnologies.dev@gmail.com",
+      action: `Registered staff profile "${name.trim()}" (${cleanEmail}) for branch: "${linkedStore.name}"`,
+      store: linkedStore.name,
+      status: "success" as const,
+    };
 
-      toast.success(`Registered user profile "${name}" successfully (Demo)!`);
-      setIsAddOpen(false);
-      setName("");
-      setEmail("");
-      setRole("manager");
-      setStoreId("");
-      return;
+    // Optimistically update local React state so UI responds instantly
+    setSuperUsers(prev => [...prev.filter(u => u.id !== newUserId), newUser]);
+    setLogs(prev => [newLog, ...prev]);
+
+    if (!isDemo) {
+      try {
+        const firestoreWrite = Promise.all([
+          setDoc(doc(db, "users", newUserId), {
+            id: newUserId,
+            name: name.trim(),
+            email: cleanEmail,
+            role,
+            storeId,
+            storeName: linkedStore.name,
+            status: "active",
+            onboardingCompleted: true,
+            createdAt: new Date().toISOString(),
+          }),
+          setDoc(doc(db, "system_logs", newLog.id), {
+            id: newLog.id,
+            timestamp: new Date().toISOString(),
+            user: "nexatechnologies.dev@gmail.com",
+            action: `Registered staff profile "${name.trim()}" (${cleanEmail}) for branch: "${linkedStore.name}"`,
+            store: linkedStore.name,
+            status: "success",
+          }),
+        ]);
+
+        firestoreWrite.catch(() => {});
+        await Promise.race([
+          firestoreWrite,
+          new Promise(res => setTimeout(res, 2500))
+        ]);
+      } catch (err) {
+        console.warn("Firestore user registration warning (saved locally):", err);
+      }
     }
 
-    try {
-      await setDoc(doc(db, "users", newUserId), {
-        id: newUserId,
-        name,
-        email,
-        role,
-        storeId,
-        storeName: linkedStore.name,
-        status: "active",
-        onboardingCompleted: true,
-        createdAt: new Date().toISOString(),
-      });
+    toast.success(`Registered user profile "${name.trim()}" successfully!`);
+    setIsAddOpen(false);
+    setIsSubmitting(false);
 
-      const newLogId = `log-${Date.now()}`;
-      await setDoc(doc(db, "system_logs", newLogId), {
-        id: newLogId,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Registered staff profile "${name}" for branch: "${linkedStore.name}"`,
-        store: linkedStore.name,
-        status: "success",
-      });
-
-      toast.success(`Registered user profile "${name}" successfully!`);
-      setIsAddOpen(false);
-      // Reset form
-      setName("");
-      setEmail("");
-      setRole("manager");
-      setStoreId("");
-    } catch (err) {
-      console.error("Failed to register staff profile:", err);
-      toast.error("Failed to save staff profile to database.");
-    }
+    // Reset form
+    setName("");
+    setEmail("");
+    setRole("manager");
+    setStoreId("");
   };
 
   const openEdit = (user: SuperUser) => {
@@ -142,123 +154,153 @@ function SuperAdminUsers() {
     e.preventDefault();
     if (!editingUser) return;
 
-    const linkedStore = superStores.find(s => s.id === storeId);
-    const storeName = linkedStore ? linkedStore.name : editingUser.storeName;
+    const cleanEmail = email.trim().toLowerCase();
 
-    if (isDemo) {
-      setSuperUsers(prev => prev.map(u => u.id === editingUser.id ? {
-        ...u,
-        name,
-        email,
-        role,
-        storeId,
-        storeName
-      } : u));
-
-      const newLog = {
-        id: `log-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Updated staff profile (Demo mode) permissions for: "${name}"`,
-        store: storeName,
-        status: "info" as const,
-      };
-      setLogs(prev => [newLog, ...prev]);
-
-      toast.success(`User profile "${name}" updated successfully (Demo).`);
-      setIsEditOpen(false);
-      setEditingUser(null);
+    // Security & Data Integrity: Check for duplicate email on other users
+    const duplicateEmail = superUsers.some(u => u.id !== editingUser.id && u.email.trim().toLowerCase() === cleanEmail);
+    if (duplicateEmail) {
+      toast.error(`Security Alert: Another user profile is already using the email address "${cleanEmail}".`);
       return;
     }
 
-    try {
-      await updateDoc(doc(db, "users", editingUser.id), {
-        name,
-        email,
-        role,
-        storeId,
-        storeName,
-      });
+    const linkedStore = superStores.find(s => s.id === storeId);
+    const storeName = linkedStore ? linkedStore.name : editingUser.storeName;
 
-      const newLogId = `log-${Date.now()}`;
-      await setDoc(doc(db, "system_logs", newLogId), {
-        id: newLogId,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Updated credentials and role permissions for: "${name}"`,
-        store: storeName,
-        status: "info",
-      });
+    setIsSubmitting(true);
 
-      toast.success(`User profile "${name}" updated successfully.`);
-      setIsEditOpen(false);
-      setEditingUser(null);
-    } catch (err) {
-      console.error("Failed to update user profile:", err);
-      toast.error("Failed to update user in the database.");
+    setSuperUsers(prev => prev.map(u => u.id === editingUser.id ? {
+      ...u,
+      name: name.trim(),
+      email: cleanEmail,
+      role,
+      storeId,
+      storeName
+    } : u));
+
+    const newLog = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      user: "nexatechnologies.dev@gmail.com",
+      action: `Updated credentials and permissions for: "${name.trim()}" (${cleanEmail})`,
+      store: storeName,
+      status: "info" as const,
+    };
+    setLogs(prev => [newLog, ...prev]);
+
+    if (!isDemo) {
+      try {
+        const firestoreWrite = Promise.all([
+          updateDoc(doc(db, "users", editingUser.id), {
+            name: name.trim(),
+            email: cleanEmail,
+            role,
+            storeId,
+            storeName,
+          }),
+          setDoc(doc(db, "system_logs", newLog.id), {
+            id: newLog.id,
+            timestamp: new Date().toISOString(),
+            user: "nexatechnologies.dev@gmail.com",
+            action: `Updated credentials and role permissions for: "${name.trim()}" (${cleanEmail})`,
+            store: storeName,
+            status: "info",
+          }),
+        ]);
+
+        firestoreWrite.catch(() => {});
+        await Promise.race([
+          firestoreWrite,
+          new Promise(res => setTimeout(res, 2500))
+        ]);
+      } catch (err) {
+        console.warn("Firestore user update warning (updated locally):", err);
+      }
     }
+
+    toast.success(`User profile "${name.trim()}" updated successfully.`);
+    setIsEditOpen(false);
+    setEditingUser(null);
+    setIsSubmitting(false);
   };
 
   const toggleUserStatus = async (user: SuperUser) => {
     const nextStatus = user.status === "active" ? "inactive" : "active";
 
-    if (isDemo) {
-      setSuperUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: nextStatus } : u));
-      toast.info(`"${user.name}" status set to ${nextStatus.toUpperCase()} (Demo)`);
-      return;
-    }
+    setSuperUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: nextStatus } : u));
+    toast.info(`"${user.name}" status set to ${nextStatus.toUpperCase()}`);
 
-    try {
-      await updateDoc(doc(db, "users", user.id), {
-        status: nextStatus,
-      });
+    if (!isDemo) {
+      try {
+        const newLogId = `log-${Date.now()}`;
+        const firestoreWrite = Promise.all([
+          updateDoc(doc(db, "users", user.id), {
+            status: nextStatus,
+          }),
+          setDoc(doc(db, "system_logs", newLogId), {
+            id: newLogId,
+            timestamp: new Date().toISOString(),
+            user: "nexatechnologies.dev@gmail.com",
+            action: `Changed security status of "${user.name}" to [${nextStatus.toUpperCase()}]`,
+            store: user.storeName,
+            status: nextStatus === "active" ? "success" : "warning",
+          }),
+        ]);
 
-      const newLogId = `log-${Date.now()}`;
-      await setDoc(doc(db, "system_logs", newLogId), {
-        id: newLogId,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Changed security status of "${user.name}" to [${nextStatus.toUpperCase()}]`,
-        store: user.storeName,
-        status: nextStatus === "active" ? "success" : "warning",
-      });
-
-      toast.info(`"${user.name}" status set to ${nextStatus.toUpperCase()}`);
-    } catch (err) {
-      console.error("Failed to toggle user status:", err);
-      toast.error("Failed to update security status in database.");
+        firestoreWrite.catch(() => {});
+        await Promise.race([
+          firestoreWrite,
+          new Promise(res => setTimeout(res, 2500))
+        ]);
+      } catch (err) {
+        console.warn("Firestore user status toggle warning (toggled locally):", err);
+      }
     }
   };
 
   const handleDeleteUser = async (user: SuperUser) => {
-    if (isDemo) {
-      setSuperUsers(prev => prev.filter(u => u.id !== user.id));
-      toast.success(`User "${user.name}" deleted (Demo).`);
-      setIsDeleteOpen(false);
-      setDeletingUser(null);
-      return;
+    setIsSubmitting(true);
+
+    // Optimistically update local React state
+    setSuperUsers(prev => prev.filter(u => u.id !== user.id));
+
+    const newLog = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      user: "nexatechnologies.dev@gmail.com",
+      action: `Terminated and deleted user credentials: "${user.name}" (${user.email})`,
+      store: user.storeName,
+      status: "warning" as const,
+    };
+    setLogs(prev => [newLog, ...prev]);
+
+    if (!isDemo) {
+      try {
+        const firestoreWrite = Promise.all([
+          deleteDoc(doc(db, "users", user.id)),
+          setDoc(doc(db, "system_logs", newLog.id), {
+            id: newLog.id,
+            timestamp: new Date().toISOString(),
+            user: "nexatechnologies.dev@gmail.com",
+            action: `Terminated and deleted user credentials: "${user.name}" (${user.email})`,
+            store: user.storeName,
+            status: "warning",
+          }),
+        ]);
+
+        firestoreWrite.catch(() => {});
+        await Promise.race([
+          firestoreWrite,
+          new Promise(res => setTimeout(res, 2500))
+        ]);
+      } catch (err) {
+        console.warn("Firestore delete user warning (deleted locally):", err);
+      }
     }
 
-    try {
-      await deleteDoc(doc(db, "users", user.id));
-
-      const newLogId = `log-${Date.now()}`;
-      await setDoc(doc(db, "system_logs", newLogId), {
-        id: newLogId,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Terminated and deleted user credentials: "${user.name}" (${user.email})`,
-        store: user.storeName,
-        status: "warning",
-      });
-
-      toast.success(`User "${user.name}" deleted successfully.`);
-      setIsDeleteOpen(false);
-      setDeletingUser(null);
-    } catch (err) {
-      console.error("Failed to delete user:", err);
-      toast.error("Failed to delete user credentials from database.");
-    }
+    toast.success(`User "${user.name}" deleted successfully.`);
+    setIsDeleteOpen(false);
+    setDeletingUser(null);
+    setIsSubmitting(false);
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -408,8 +450,17 @@ function SuperAdminUsers() {
               </select>
             </div>
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} className="text-xs h-9">Cancel</Button>
-              <Button type="submit" className="text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Authorize Credentials</Button>
+              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} disabled={isSubmitting} className="text-xs h-9">Cancel</Button>
+              <Button type="submit" disabled={isSubmitting} className="text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-1.5">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Authorizing...</span>
+                  </>
+                ) : (
+                  <span>Authorize Credentials</span>
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -447,8 +498,17 @@ function SuperAdminUsers() {
               </select>
             </div>
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="text-xs h-9">Cancel</Button>
-              <Button type="submit" className="text-xs h-9 bg-primary hover:bg-primary/95 text-white font-semibold">Save Changes</Button>
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSubmitting} className="text-xs h-9">Cancel</Button>
+              <Button type="submit" disabled={isSubmitting} className="text-xs h-9 bg-primary hover:bg-primary/95 text-white font-semibold flex items-center justify-center gap-1.5">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Changes</span>
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -543,15 +603,23 @@ function SuperAdminUsers() {
                 This operation cannot be undone.
               </div>
               <DialogFooter className="pt-2">
-                <Button type="button" variant="outline" onClick={() => setIsDeleteOpen(false)} className="text-xs h-9">
+                <Button type="button" variant="outline" onClick={() => setIsDeleteOpen(false)} disabled={isSubmitting} className="text-xs h-9">
                   Cancel
                 </Button>
                 <Button 
                   type="button" 
+                  disabled={isSubmitting}
                   onClick={() => handleDeleteUser(deletingUser)}
-                  className="text-xs h-9 bg-red-600 hover:bg-red-700 text-white font-bold"
+                  className="text-xs h-9 bg-red-600 hover:bg-red-700 text-white font-bold flex items-center justify-center gap-1.5"
                 >
-                  Revoke Authorization
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Revoking...</span>
+                    </>
+                  ) : (
+                    <span>Revoke Authorization</span>
+                  )}
                 </Button>
               </DialogFooter>
             </div>

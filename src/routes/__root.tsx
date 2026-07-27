@@ -49,8 +49,8 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 
 function RootComponent() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <ThemeProvider>
         <SystemSettingsProvider>
           <DemoProvider>
             <RoleProvider>
@@ -62,8 +62,8 @@ function RootComponent() {
             </RoleProvider>
           </DemoProvider>
         </SystemSettingsProvider>
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 

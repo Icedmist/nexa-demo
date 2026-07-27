@@ -113,8 +113,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         try {
           // Wrap profile fetch in a safety timeout of 1500ms
+          const profilePromise = getDoc(profileRef);
+          profilePromise.catch(() => {});
           const snap = await Promise.race([
-            getDoc(profileRef),
+            profilePromise,
             new Promise<never>((_, reject) => 
               setTimeout(() => reject(new Error("Profile fetch timed out after 1500ms")), 1500)
             )
@@ -205,8 +207,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             try {
               // Note: If this fails with permission denied, it's likely strict rules being applied.
               // We check if we are in a "create store" flow which implies intent to be an admin.
+              const usersPromise = getDocs(query(collection(db, "users"), limit(1)));
+              usersPromise.catch(() => {});
               allUsersSnap = await Promise.race([
-                getDocs(query(collection(db, "users"), limit(1))),
+                usersPromise,
                 new Promise<never>((_, reject) => 
                   setTimeout(() => reject(new Error("Timeout checking first user")), 1500)
                 )
@@ -296,8 +300,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             
             try {
+              const batchPromise = batch.commit();
+              batchPromise.catch(() => {});
               await Promise.race([
-                batch.commit(),
+                batchPromise,
                 new Promise<void>((_, reject) => 
                   setTimeout(() => reject(new Error("Timeout committing profile batch")), 1500)
                 )

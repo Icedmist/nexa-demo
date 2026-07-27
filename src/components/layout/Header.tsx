@@ -212,7 +212,7 @@ export function Header({ isSidebarMinimized, onToggleSidebar }: HeaderProps) {
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
               <User className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
-            <span className="hidden text-sm font-medium lg:inline-block">{displayName}</span>
+            <span className="hidden text-sm font-medium text-foreground lg:inline-block">{displayName}</span>
             <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground lg:inline-block" />
           </button>
         </DropdownMenuTrigger>

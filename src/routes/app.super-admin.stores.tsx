@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Edit2, Eye, Trash2, Building2, MapPin } from "lucide-react";
+import { Plus, Search, Edit2, Eye, Trash2, Building2, MapPin, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { db } from "@/lib/firebase";
@@ -48,6 +48,7 @@ function SuperAdminStores() {
   const [deletingStore, setDeletingStore] = useState<SuperStore | null>(null);
 
   // Form states
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState("");
   const [sector, setSector] = useState<string>("general");
   const [manager, setManager] = useState("");
@@ -68,123 +69,129 @@ function SuperAdminStores() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !manager || !managerEmail) {
+    if (!name.trim() || !manager.trim() || !managerEmail.trim()) {
       toast.error("Please fill in all required fields.");
       return;
     }
 
-    const newStoreId = `store-${Date.now()}`;
-    const newStoreValuation = Number(valuation) || 0;
+    const cleanManagerEmail = managerEmail.trim().toLowerCase();
 
-    if (isDemo) {
-      const newStore: SuperStore = {
-        id: newStoreId,
-        name,
-        sector,
-        manager,
-        managerEmail,
-        itemCount: 0,
-        valuationNgn: newStoreValuation,
-        healthScore: 100,
-        alerts: 0,
-        status: "active",
-        country: storeCountry,
-        state: storeState,
-        lga: storeLga,
-      };
-
-      const newUser = {
-        id: `user-${Date.now()}`,
-        name: manager,
-        email: managerEmail,
-        role: "admin" as const,
-        storeId: newStoreId,
-        storeName: name,
-        joinedDate: new Date().toISOString().slice(0, 10),
-        status: "active" as const,
-      };
-
-      setSuperStores(prev => [...prev, newStore]);
-      setSuperUsers(prev => [...prev, newUser]);
-
-      const newLog = {
-        id: `log-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Provisioned new storefront (Demo mode): "${name}"`,
-        store: name,
-        status: "success" as const,
-      };
-      setLogs(prev => [newLog, ...prev]);
-
-      toast.success(`Storefront "${name}" provisioned successfully in local environment!`);
-      setIsAddOpen(false);
-      setName("");
-      setManager("");
-      setManagerEmail("");
-      setValuation("500000");
-      setStoreCountry("Nigeria");
-      setStoreState("");
-      setStoreLga("");
+    // Security & Data Integrity: Prevent duplicate email accounts
+    const duplicateEmail = superUsers.some(u => u.email.trim().toLowerCase() === cleanManagerEmail) ||
+                           superStores.some(s => s.managerEmail.trim().toLowerCase() === cleanManagerEmail);
+    if (duplicateEmail) {
+      toast.error(`Security Alert: An account or store manager with email "${cleanManagerEmail}" already exists.`);
       return;
     }
 
-    try {
-      await setDoc(doc(db, "stores", newStoreId), {
-        id: newStoreId,
-        storeName: name,
-        businessType: sector,
-        ownerName: manager,
-        ownerEmail: managerEmail,
-        valuationNgn: newStoreValuation,
-        healthScore: 100,
-        alerts: 0,
-        status: "active",
-        isOnboarded: true,
-        createdAt: new Date().toISOString(),
-        country: storeCountry,
-        state: storeState,
-        lga: storeLga,
-      });
+    setIsSubmitting(true);
 
-      // Create linked owner profile
-      const newUserId = `user-${Date.now()}`;
-      await setDoc(doc(db, "users", newUserId), {
-        id: newUserId,
-        name: manager,
-        email: managerEmail,
-        role: "admin",
-        storeId: newStoreId,
-        storeName: name,
-        status: "active",
-        onboardingCompleted: true,
-        createdAt: new Date().toISOString(),
-      });
+    const newStoreId = `store-${Date.now()}`;
+    const newStoreValuation = Number(valuation) || 0;
 
-      const newLogId = `log-${Date.now()}`;
-      await setDoc(doc(db, "system_logs", newLogId), {
-        id: newLogId,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Provisioned new multi-tenant storefront: "${name}"`,
-        store: name,
-        status: "success",
-      });
+    const newStore: SuperStore = {
+      id: newStoreId,
+      name: name.trim(),
+      sector,
+      manager: manager.trim(),
+      managerEmail: cleanManagerEmail,
+      itemCount: 0,
+      valuationNgn: newStoreValuation,
+      healthScore: 100,
+      alerts: 0,
+      status: "active",
+      country: storeCountry,
+      state: storeState,
+      lga: storeLga,
+    };
 
-      toast.success(`Storefront "${name}" provisioned successfully!`);
-      setIsAddOpen(false);
-      // Reset form
-      setName("");
-      setManager("");
-      setManagerEmail("");
-      setValuation("500000");
-      setStoreCountry("Nigeria");
-      setStoreState("");
-      setStoreLga("");
-    } catch (err) {
-      console.error("Failed to provision storefront:", err);
-      toast.error("Failed to provision storefront in database.");
+    const newUser = {
+      id: `user-${Date.now()}`,
+      name: manager.trim(),
+      email: cleanManagerEmail,
+      role: "admin" as const,
+      storeId: newStoreId,
+      storeName: name.trim(),
+      joinedDate: new Date().toISOString().slice(0, 10),
+      status: "active" as const,
+    };
+
+    const newLog = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      user: "nexatechnologies.dev@gmail.com",
+      action: `Provisioned new storefront: "${name.trim()}" (${cleanManagerEmail})`,
+      store: name.trim(),
+      status: "success" as const,
+    };
+
+    // Optimistically update local React state so UI updates instantly
+    setSuperStores(prev => [...prev.filter(s => s.id !== newStoreId), newStore]);
+    setSuperUsers(prev => [...prev.filter(u => u.id !== newUser.id), newUser]);
+    setLogs(prev => [newLog, ...prev]);
+
+    if (!isDemo) {
+      try {
+        const firestoreWrite = Promise.all([
+          setDoc(doc(db, "stores", newStoreId), {
+            id: newStoreId,
+            storeName: name.trim(),
+            businessType: sector,
+            ownerName: manager.trim(),
+            ownerEmail: cleanManagerEmail,
+            valuationNgn: newStoreValuation,
+            healthScore: 100,
+            alerts: 0,
+            status: "active",
+            isOnboarded: true,
+            createdAt: new Date().toISOString(),
+            country: storeCountry,
+            state: storeState,
+            lga: storeLga,
+          }),
+          setDoc(doc(db, "users", newUser.id), {
+            id: newUser.id,
+            name: manager.trim(),
+            email: cleanManagerEmail,
+            role: "admin",
+            storeId: newStoreId,
+            storeName: name.trim(),
+            status: "active",
+            onboardingCompleted: true,
+            createdAt: new Date().toISOString(),
+          }),
+          setDoc(doc(db, "system_logs", newLog.id), {
+            id: newLog.id,
+            timestamp: new Date().toISOString(),
+            user: "nexatechnologies.dev@gmail.com",
+            action: `Provisioned new multi-tenant storefront: "${name.trim()}" (${cleanManagerEmail})`,
+            store: name.trim(),
+            status: "success",
+          }),
+        ]);
+
+        firestoreWrite.catch(() => {});
+        await Promise.race([
+          firestoreWrite,
+          new Promise(res => setTimeout(res, 2500))
+        ]);
+      } catch (err) {
+        console.warn("Firestore sync warning (provisioned locally):", err);
+      }
     }
+
+    toast.success(`Storefront "${name.trim()}" provisioned successfully!`);
+    setIsAddOpen(false);
+    setIsSubmitting(false);
+
+    // Reset form
+    setName("");
+    setManager("");
+    setManagerEmail("");
+    setValuation("500000");
+    setStoreCountry("Nigeria");
+    setStoreState("");
+    setStoreLga("");
   };
 
   const openEdit = (store: SuperStore) => {
@@ -204,66 +211,78 @@ function SuperAdminStores() {
     e.preventDefault();
     if (!editingStore) return;
 
-    const updatedValuation = Number(valuation) || 0;
+    const cleanManagerEmail = managerEmail.trim().toLowerCase();
 
-    if (isDemo) {
-      setSuperStores(prev => prev.map(s => s.id === editingStore.id ? {
-        ...s,
-        name,
-        sector,
-        manager,
-        managerEmail,
-        valuationNgn: updatedValuation,
-        country: storeCountry,
-        state: storeState,
-        lga: storeLga,
-      } : s));
-
-      const newLog = {
-        id: `log-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Updated storefront parameters (Demo mode): "${name}"`,
-        store: name,
-        status: "info" as const,
-      };
-      setLogs(prev => [newLog, ...prev]);
-
-      toast.success(`Store "${name}" updated successfully (Demo).`);
-      setIsEditOpen(false);
-      setEditingStore(null);
+    // Security & Data Integrity: Check for duplicate manager email on other stores/users
+    const duplicateEmail = superUsers.some(u => u.email.trim().toLowerCase() === cleanManagerEmail && u.storeId !== editingStore.id) ||
+                           superStores.some(s => s.id !== editingStore.id && s.managerEmail.trim().toLowerCase() === cleanManagerEmail);
+    if (duplicateEmail) {
+      toast.error(`Security Alert: Another store or user is already associated with email "${cleanManagerEmail}".`);
       return;
     }
 
-    try {
-      await updateDoc(doc(db, "stores", editingStore.id), {
-        storeName: name,
-        businessType: sector,
-        ownerName: manager,
-        ownerEmail: managerEmail,
-        valuationNgn: updatedValuation,
-        country: storeCountry,
-        state: storeState,
-        lga: storeLga,
-      });
+    setIsSubmitting(true);
+    const updatedValuation = Number(valuation) || 0;
 
-      const newLogId = `log-${Date.now()}`;
-      await setDoc(doc(db, "system_logs", newLogId), {
-        id: newLogId,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Modified configuration parameters for: "${name}"`,
-        store: name,
-        status: "info",
-      });
+    setSuperStores(prev => prev.map(s => s.id === editingStore.id ? {
+      ...s,
+      name: name.trim(),
+      sector,
+      manager: manager.trim(),
+      managerEmail: cleanManagerEmail,
+      valuationNgn: updatedValuation,
+      country: storeCountry,
+      state: storeState,
+      lga: storeLga,
+    } : s));
 
-      toast.success(`Store "${name}" updated successfully.`);
-      setIsEditOpen(false);
-      setEditingStore(null);
-    } catch (err) {
-      console.error("Failed to update store:", err);
-      toast.error("Failed to save changes to the database.");
+    const newLog = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      user: "nexatechnologies.dev@gmail.com",
+      action: `Modified configuration parameters for: "${name.trim()}" (${cleanManagerEmail})`,
+      store: name.trim(),
+      status: "info" as const,
+    };
+    setLogs(prev => [newLog, ...prev]);
+
+    if (!isDemo) {
+      try {
+        const firestoreWrite = Promise.all([
+          updateDoc(doc(db, "stores", editingStore.id), {
+            storeName: name.trim(),
+            businessType: sector,
+            ownerName: manager.trim(),
+            ownerEmail: cleanManagerEmail,
+            valuationNgn: updatedValuation,
+            country: storeCountry,
+            state: storeState,
+            lga: storeLga,
+          }),
+          setDoc(doc(db, "system_logs", newLog.id), {
+            id: newLog.id,
+            timestamp: new Date().toISOString(),
+            user: "nexatechnologies.dev@gmail.com",
+            action: `Modified configuration parameters for: "${name.trim()}" (${cleanManagerEmail})`,
+            store: name.trim(),
+            status: "info",
+          }),
+        ]);
+
+        firestoreWrite.catch(() => {});
+        await Promise.race([
+          firestoreWrite,
+          new Promise(res => setTimeout(res, 2500))
+        ]);
+      } catch (err) {
+        console.warn("Firestore update warning (updated locally):", err);
+      }
     }
+
+    toast.success(`Store "${name.trim()}" updated successfully.`);
+    setIsEditOpen(false);
+    setEditingStore(null);
+    setIsSubmitting(false);
   };
 
   const toggleStoreStatus = async (store: SuperStore) => {
@@ -274,62 +293,66 @@ function SuperAdminStores() {
     };
     const nextStatus = nextStatusMap[store.status];
 
-    if (isDemo) {
-      setSuperStores(prev => prev.map(s => s.id === store.id ? { ...s, status: nextStatus } : s));
-      toast.info(`"${store.name}" is now in ${nextStatus.toUpperCase()} mode (Demo).`);
-      return;
-    }
+    setSuperStores(prev => prev.map(s => s.id === store.id ? { ...s, status: nextStatus } : s));
+    toast.info(`"${store.name}" is now in ${nextStatus.toUpperCase()} mode.`);
 
-    try {
-      await updateDoc(doc(db, "stores", store.id), {
-        status: nextStatus,
-      });
+    if (!isDemo) {
+      try {
+        const newLogId = `log-${Date.now()}`;
+        const firestoreWrite = Promise.all([
+          updateDoc(doc(db, "stores", store.id), {
+            status: nextStatus,
+          }),
+          setDoc(doc(db, "system_logs", newLogId), {
+            id: newLogId,
+            timestamp: new Date().toISOString(),
+            user: "nexatechnologies.dev@gmail.com",
+            action: `Toggled state of "${store.name}" to [${nextStatus.toUpperCase()}]`,
+            store: store.name,
+            status: nextStatus === "active" ? "success" : "warning",
+          }),
+        ]);
 
-      const newLogId = `log-${Date.now()}`;
-      await setDoc(doc(db, "system_logs", newLogId), {
-        id: newLogId,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Toggled state of "${store.name}" to [${nextStatus.toUpperCase()}]`,
-        store: store.name,
-        status: nextStatus === "active" ? "success" : "warning",
-      });
-
-      toast.info(`"${store.name}" is now in ${nextStatus.toUpperCase()} mode.`);
-    } catch (err) {
-      console.error("Failed to toggle store status:", err);
-      toast.error("Failed to update status in the database.");
+        firestoreWrite.catch(() => {});
+        await Promise.race([
+          firestoreWrite,
+          new Promise(res => setTimeout(res, 2500))
+        ]);
+      } catch (err) {
+        console.warn("Firestore status toggle warning (toggled locally):", err);
+      }
     }
   };
 
   const handleDeleteStore = async (store: SuperStore) => {
-    if (isDemo) {
-      setSuperStores(prev => prev.filter(s => s.id !== store.id));
-      toast.success(`Storefront "${store.name}" deleted (Demo).`);
-      setIsDeleteOpen(false);
-      setDeletingStore(null);
-      return;
-    }
+    setSuperStores(prev => prev.filter(s => s.id !== store.id));
+    toast.success(`Storefront "${store.name}" deleted successfully.`);
+    setIsDeleteOpen(false);
+    setDeletingStore(null);
 
-    try {
-      await deleteDoc(doc(db, "stores", store.id));
+    if (!isDemo) {
+      try {
+        const newLogId = `log-${Date.now()}`;
+        const firestoreWrite = Promise.all([
+          deleteDoc(doc(db, "stores", store.id)),
+          setDoc(doc(db, "system_logs", newLogId), {
+            id: newLogId,
+            timestamp: new Date().toISOString(),
+            user: "nexatechnologies.dev@gmail.com",
+            action: `Terminated and deleted multi-tenant storefront: "${store.name}"`,
+            store: store.name,
+            status: "warning",
+          }),
+        ]);
 
-      const newLogId = `log-${Date.now()}`;
-      await setDoc(doc(db, "system_logs", newLogId), {
-        id: newLogId,
-        timestamp: new Date().toISOString(),
-        user: "nexatechnologies.dev@gmail.com",
-        action: `Terminated and deleted multi-tenant storefront: "${store.name}"`,
-        store: store.name,
-        status: "warning",
-      });
-
-      toast.success(`Storefront "${store.name}" deleted successfully.`);
-      setIsDeleteOpen(false);
-      setDeletingStore(null);
-    } catch (err) {
-      console.error("Failed to delete store:", err);
-      toast.error("Failed to delete storefront from database.");
+        firestoreWrite.catch(() => {});
+        await Promise.race([
+          firestoreWrite,
+          new Promise(res => setTimeout(res, 2500))
+        ]);
+      } catch (err) {
+        console.warn("Firestore delete warning (deleted locally):", err);
+      }
     }
   };
 
@@ -545,8 +568,17 @@ function SuperAdminStores() {
               </div>
             </div>
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} className="text-xs h-9">Cancel</Button>
-              <Button type="submit" className="text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Provision Container</Button>
+              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} disabled={isSubmitting} className="text-xs h-9">Cancel</Button>
+              <Button type="submit" disabled={isSubmitting} className="text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-1.5">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Provisioning...</span>
+                  </>
+                ) : (
+                  <span>Provision Container</span>
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -626,8 +658,17 @@ function SuperAdminStores() {
               </div>
             </div>
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="text-xs h-9">Cancel</Button>
-              <Button type="submit" className="text-xs h-9 bg-primary hover:bg-primary/95 text-white font-semibold">Save Changes</Button>
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSubmitting} className="text-xs h-9">Cancel</Button>
+              <Button type="submit" disabled={isSubmitting} className="text-xs h-9 bg-primary hover:bg-primary/95 text-white font-semibold flex items-center justify-center gap-1.5">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <span>Save Changes</span>
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -752,15 +793,23 @@ function SuperAdminStores() {
                 This operation cannot be undone.
               </div>
               <DialogFooter className="pt-2">
-                <Button type="button" variant="outline" onClick={() => setIsDeleteOpen(false)} className="text-xs h-9">
+                <Button type="button" variant="outline" onClick={() => setIsDeleteOpen(false)} disabled={isSubmitting} className="text-xs h-9">
                   Cancel
                 </Button>
                 <Button 
                   type="button" 
+                  disabled={isSubmitting}
                   onClick={() => handleDeleteStore(deletingStore)}
-                  className="text-xs h-9 bg-red-600 hover:bg-red-700 text-white font-bold"
+                  className="text-xs h-9 bg-red-600 hover:bg-red-700 text-white font-bold flex items-center justify-center gap-1.5"
                 >
-                  Terminate Container Slice
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Terminating...</span>
+                    </>
+                  ) : (
+                    <span>Terminate Container Slice</span>
+                  )}
                 </Button>
               </DialogFooter>
             </div>

@@ -197,6 +197,7 @@ export function useInventoryMutation() {
         setTimeout(() => reject(new Error("Transaction network timeout")), 3500)
       );
 
+      txnPromise.catch(() => {});
       await Promise.race([txnPromise, timeoutPromise]);
       return;
     } catch (err) {
@@ -281,6 +282,7 @@ export function useInventoryMutation() {
         setTimeout(() => reject(new Error("Credit transaction network timeout")), 3500)
       );
 
+      txnPromise.catch(() => {});
       await Promise.race([txnPromise, timeoutPromise]);
       return;
     } catch (err) {

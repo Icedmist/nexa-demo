@@ -25,6 +25,9 @@ import {
   Building2,
   CheckCircle2,
   Sparkles,
+  Clock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getWhatsAppUrl } from "@/lib/whatsapp";
@@ -65,16 +68,22 @@ function SuperAdminUpdates() {
 
   useEffect(() => {
     if (!isDemo) {
-      const unsub = onSnapshot(doc(db, "settings", "paystack_gateway"), (snap) => {
-        if (snap.exists()) {
-          const d = snap.data();
-          setPaystackPublicKey(d.publicKey || d.apiKey || "");
-          setPaystackSecretKey(d.secretKey || "");
-          setPaystackAccountNumber(d.accountNumber || "5028910423");
-          setPaystackAccountName(d.accountName || "NexaStoreOS / Paystack Gateway");
-          setPaystackBankName(d.bankName || "Wema Bank / Titan Paystack");
+      const unsub = onSnapshot(
+        doc(db, "settings", "paystack_gateway"),
+        (snap) => {
+          if (snap.exists()) {
+            const d = snap.data();
+            setPaystackPublicKey(d.publicKey || d.apiKey || "");
+            setPaystackSecretKey(d.secretKey || "");
+            setPaystackAccountNumber(d.accountNumber || "5028910423");
+            setPaystackAccountName(d.accountName || "NexaStoreOS / Paystack Gateway");
+            setPaystackBankName(d.bankName || "Wema Bank / Titan Paystack");
+          }
+        },
+        (err) => {
+          console.warn("Paystack settings snapshot warning (operating in fallback):", err);
         }
-      });
+      );
       return unsub;
     }
   }, [isDemo]);
