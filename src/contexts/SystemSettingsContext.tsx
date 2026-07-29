@@ -66,6 +66,7 @@ export interface StoreSettings {
   country?: string;
   state?: string;
   lga?: string;
+  enableManagerProductCollectionDebt?: boolean;
 }
 
 const DEFAULT_SETTINGS: StoreSettings = {
@@ -103,7 +104,8 @@ const DEFAULT_SETTINGS: StoreSettings = {
   paystackAccountName: "NexaStoreOS / Paystack Merchant",
   paystackPublicKey: "",
   paystackSecretKey: "",
-  paystackStatus: "waiting_for_keys"
+  paystackStatus: "waiting_for_keys",
+  enableManagerProductCollectionDebt: true
 };
 
 interface SystemSettingsContextValue {
@@ -140,20 +142,21 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    if (!user || !profile?.storeId) {
+    if (!user) {
       setSettings(DEFAULT_SETTINGS);
       setLoading(false);
       return;
     }
 
+    const activeStoreId = profile?.storeId || (user.uid ? `store-${user.uid}` : "store-1");
     setLoading(true);
 
-    const settingsRef = doc(db, "stores", profile.storeId);
+    const settingsRef = doc(db, "stores", activeStoreId);
 
     // Safety timeout to prevent infinite loading of store settings if Firestore is offline
     const timer = setTimeout(() => {
       console.warn("System settings fetch timed out after 1500ms. Falling back to cache/default.");
-      const cached = localStorage.getItem("nexa_settings_" + profile.storeId);
+      const cached = localStorage.getItem("nexa_settings_" + activeStoreId);
       if (cached) {
         try {
           setSettings(JSON.parse(cached));
@@ -171,7 +174,7 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
       if (snap.exists()) {
         const data = snap.data() as StoreSettings;
         setSettings(data);
-        localStorage.setItem("nexa_settings_" + profile.storeId, JSON.stringify(data));
+        localStorage.setItem("nexa_settings_" + activeStoreId, JSON.stringify(data));
       } else {
         setSettings(DEFAULT_SETTINGS);
       }
@@ -179,7 +182,7 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
     }, (error) => {
       clearTimeout(timer);
       console.warn("Error fetching system settings inside listener:", error);
-      const cached = localStorage.getItem("nexa_settings_" + profile.storeId);
+      const cached = localStorage.getItem("nexa_settings_" + activeStoreId);
       if (cached) {
         try {
           setSettings(JSON.parse(cached));
@@ -199,9 +202,39 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
   }, [user, profile?.storeId]);
 
   const updateSettings = async (updates: Partial<StoreSettings>) => {
-    if (profile?.role !== "admin" || !profile?.storeId) throw new Error("Only admins can update store settings");
-    const settingsRef = doc(db, "stores", profile.storeId);
-    await setDoc(settingsRef, { ...settings, ...updates }, { merge: true });
+    const targetStoreId = profile?.storeId || (user?.uid ? `store-${user.uid}` : "store-1");
+    if (!targetStoreId) throw new Error("No active store found to update settings");
+
+    const settingsRef = doc(db, "stores", targetStoreId);
+    const newSettings = { ...settings, ...updates, updatedAt: new Date().toISOString() };
+
+    // 1. Push settings update to Firestore document for the store
+    await setDoc(settingsRef, newSettings, { merge: true });
+
+    // 2. Instantly update local state and storage cache
+    setSettings(newSettings as StoreSettings);
+    try {
+      localStorage.setItem("nexa_settings_" + targetStoreId, JSON.stringify(newSettings));
+    } catch (e) {
+      console.warn("Failed to cache updated settings locally:", e);
+    }
+
+    // 3. Broadcast real-time system notification to all store members
+    try {
+      const notifRef = doc(collection(db, "notifications"));
+      await setDoc(notifRef, {
+        id: notifRef.id,
+        title: "Store Settings Updated",
+        message: `Store settings for "${updates.storeName || settings.storeName || 'the store'}" were updated and synced across all user accounts.`,
+        type: "system",
+        storeId: targetStoreId,
+        isRead: false,
+        read: false,
+        createdAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn("Could not broadcast settings update notification:", e);
+    }
   };
 
   const setupStore = async (onboardingData: Partial<StoreSettings>) => {

@@ -5,6 +5,8 @@ import { useFirebaseCollection } from "./useFirebaseData";
 import { auth } from "@/lib/firebase";
 import { orderBy } from "firebase/firestore";
 import { useUpdateNotification, useDeleteNotification } from "./useInventoryMutations";
+import { useRole } from "@/hooks/useRole";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface QueryResult<T> {
   data: T;
@@ -14,25 +16,37 @@ interface QueryResult<T> {
 
 export function useNotifications(): QueryResult<Notification[]> {
   const { isDemo, demoStore, version } = useDemo();
+  const { isAdmin, isSuperAdmin, currentStoreId } = useRole();
+  const { profile } = useAuth();
   const enabled = !isDemo && !!auth.currentUser;
   const { data: firebaseData, loading, error } = useFirebaseCollection<Notification>("notifications", [orderBy("createdAt", "desc")], { enabled });
 
   return useMemo(() => {
+    let rawList: Notification[] = [];
     if (isDemo && demoStore) {
-      return { data: demoStore.getNotifications(), isLoading: false, error: null };
+      rawList = demoStore.getNotifications();
+    } else {
+      rawList = firebaseData || [];
     }
-    return { data: firebaseData, isLoading: loading, error };
-  }, [isDemo, demoStore, version, firebaseData, loading, error]);
+
+    // Notifications should show only for a store for non admins (manager and staff/cashier)
+    const isNonAdmin = !isAdmin && !isSuperAdmin;
+    const targetStoreId = currentStoreId || profile?.storeId;
+
+    if (isNonAdmin && targetStoreId) {
+      rawList = rawList.filter((n) => !n.storeId || n.storeId === targetStoreId);
+    }
+
+    return { data: rawList, isLoading: isDemo ? false : loading, error: isDemo ? null : error };
+  }, [isDemo, demoStore, version, firebaseData, loading, error, isAdmin, isSuperAdmin, currentStoreId, profile?.storeId]);
 }
 
 export function useUnreadCount(): number {
-  const { isDemo, demoStore, version } = useDemo();
   const { data: notifications } = useNotifications();
 
   return useMemo(() => {
-    if (isDemo && demoStore) return demoStore.getUnreadCount();
-    return notifications.filter(n => !n.read).length;
-  }, [isDemo, demoStore, version, notifications]);
+    return notifications.filter(n => !n.isRead && !n.read).length;
+  }, [notifications]);
 }
 
 export function useMarkAsRead() {

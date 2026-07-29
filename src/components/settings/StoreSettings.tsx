@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { Store, Save, ShieldAlert, Mail, FileText, MapPin, Trash2, Plus, Building2, ExternalLink, Copy, Sparkles, Layers, ShieldCheck, Zap, ArrowUpRight, Eye, EyeOff, Landmark, HelpCircle } from "lucide-react";
+import { Store, Save, ShieldAlert, Mail, FileText, MapPin, Trash2, Plus, Building2, ExternalLink, Copy, Sparkles, Layers, ShieldCheck, Zap, ArrowUpRight, Eye, EyeOff, Landmark, HelpCircle, PackageCheck } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { PaymentDialog } from "@/components/settings/PaymentDialog";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
@@ -71,6 +72,9 @@ export function StoreSettings() {
   const [publicStorefrontEnabled, setPublicStorefrontEnabled] = useState<boolean>(
     (activeSettings as Record<string, unknown>).publicStorefrontEnabled as boolean || false
   );
+  const [enableManagerProductCollectionDebt, setEnableManagerProductCollectionDebt] = useState<boolean>(
+    activeSettings.enableManagerProductCollectionDebt ?? true
+  );
   const [branchName, setBranchName] = useState("");
   const [branchAddress, setBranchAddress] = useState("");
 
@@ -105,6 +109,7 @@ export function StoreSettings() {
     setReportFrequency(activeSettings.reportPreferences?.frequency || "off");
     setRecipientEmail(activeSettings.reportPreferences?.recipientEmail || "");
     setPublicStorefrontEnabled((activeSettings as Record<string, unknown>).publicStorefrontEnabled as boolean || false);
+    setEnableManagerProductCollectionDebt(activeSettings.enableManagerProductCollectionDebt ?? true);
   }, [activeSettings]);
 
   const totalRevenue = sales.reduce((sum, s) => sum + (s.totalNgn || 0), 0);
@@ -231,6 +236,7 @@ export function StoreSettings() {
       country: country,
       state: state,
       lga: lga,
+      enableManagerProductCollectionDebt: enableManagerProductCollectionDebt,
     };
 
     try {
@@ -952,6 +958,33 @@ export function StoreSettings() {
                 )}
               </>
             )}
+          </div>
+
+          <div className="pt-6 border-t border-border space-y-4">
+            <div>
+              <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                <PackageCheck className="h-4 w-4 text-purple-600" />
+                Store Operations & Manager Product Debt Feature
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Optional store setting to track products collected by store managers, reconcile sales/stock returns, and calculate remaining balances as Manager Debt.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-purple-500/5 rounded-xl border border-purple-500/20">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold text-foreground">
+                  Manager Product Collections & Debt Balancing
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  When enabled, managers can log collections, balance up sales remittances & stock returns, and track outstanding debt.
+                </p>
+              </div>
+              <Switch
+                checked={enableManagerProductCollectionDebt}
+                onCheckedChange={setEnableManagerProductCollectionDebt}
+              />
+            </div>
           </div>
 
           <Button onClick={handleSave} className="gap-1.5">

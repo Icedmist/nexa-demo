@@ -19,6 +19,7 @@ import { RequestFormSheet } from "@/components/requests/RequestFormSheet";
 import { RequestsTable } from "@/components/requests/RequestsTable";
 import { RequestsFilters } from "@/components/requests/RequestsFilters";
 import { RequestDetailSheet } from "@/components/requests/RequestDetailSheet";
+import { ManagerCollectionBalancing } from "@/components/requests/ManagerCollectionBalancing";
 import { useApprovalActions } from "@/components/requests/ApprovalActions";
 import { useItems, useRequests } from "@/hooks/useInventoryData";
 import { useUpdateRequest } from "@/hooks/useInventoryMutations";
@@ -191,17 +192,21 @@ function RequestsPage() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="manager-collections">
+              Manager Collections & Debts
+            </TabsTrigger>
           </TabsList>
 
-          <div className="mt-4">
+          <TabsContent value="all" className="mt-4 space-y-4">
             <RequestsFilters filters={filters} onChange={setFilters} />
-          </div>
-
-          <TabsContent value="all" className="mt-4">
             <RequestsTable requests={allFiltered} onRowClick={handleRowClick} showRequestor />
           </TabsContent>
-          <TabsContent value="pending" className="mt-4">
+          <TabsContent value="pending" className="mt-4 space-y-4">
+            <RequestsFilters filters={filters} onChange={setFilters} />
             <RequestsTable requests={pendingRequests} onRowClick={handleRowClick} showRequestor preSorted />
+          </TabsContent>
+          <TabsContent value="manager-collections" className="mt-4">
+            <ManagerCollectionBalancing />
           </TabsContent>
         </Tabs>
       ) : (
