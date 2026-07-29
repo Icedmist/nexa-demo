@@ -2089,14 +2089,11 @@ function LandingPage() {
                               className="btn btn-primary" 
                               style={{ width: '100%', padding: '15px', fontSize: '15px', marginTop: 'auto' }} 
                               onClick={() => {
-                                if (auth.currentUser) {
-                                  // Open payment upgrade modal
-                                  setUpgradeTier(plan.id as "starter" | "professional" | "enterprise");
-                                  setIsPaymentOpen(true);
+                                if (user) {
+                                  navigate({ to: "/app/dashboard" });
                                 } else {
-                                  // Open onboarding/auth modal with selected tier
-                                  setSelectedTierForOnboarding(plan.id);
-                                  setShowAuthModal(true);
+                                  sessionStorage.setItem("nexa_intended_tier", plan.id);
+                                  handleGetStarted(plan.id);
                                 }
                               }}
                               whileHover={{ scale: 1.02, translateY: -2 }}
