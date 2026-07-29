@@ -206,6 +206,46 @@ function AppLayout() {
     entryMethod?: OnboardingEntryMethod;
   }) => {
     try {
+      if (isDemo) {
+        enterDemoMode({
+          businessType: data.businessType,
+          categories: data.categories,
+          storeName: data.storeName,
+          brandColor: data.brandColor,
+          storePhone: "",
+          storeAddress: "",
+          receiptFooter: "Thank you for your patronage!",
+          taxRate: 0,
+          electronicsMainType: data.electronicsMainType,
+          textilePrimarilySellsBy: data.textilePrimarilySellsBy,
+          textileSubcategories: data.textileSubcategories,
+          boutiqueSubcategories: data.boutiqueSubcategories,
+          country: data.country || "Nigeria",
+          state: data.state || "",
+          lga: data.lga || "",
+          initialItems: data.initialItems?.map(item => ({
+            name: item.name,
+            price: item.price,
+            costPrice: item.costPrice,
+            stock: item.stock,
+            unit: item.unit,
+            categoryId: item.categoryId,
+            color: item.color,
+            sizes: item.sizes,
+            enableColours: item.enableColours,
+            enableSizes: item.enableSizes,
+            fineTunedVariants: item.fineTunedVariants
+          }))
+        });
+        sessionStorage.setItem("stackwise-just-onboarded", "true");
+        setForceOnboarding(false);
+        setMemberOnboarding(false);
+        handleOptionRoute(data.entryMethod);
+        return;
+      }
+
+      const activeStoreId = profile?.storeId || (user ? `store-${user.uid}` : null);
+
       await setupStore({
         businessType: data.businessType,
         categories: data.categories,
@@ -229,7 +269,7 @@ function AppLayout() {
       });
 
       // Save initial items if any
-      if (data.initialItems && data.initialItems.length > 0 && profile?.storeId) {
+      if (data.initialItems && data.initialItems.length > 0 && activeStoreId) {
         const batch = writeBatch(db);
         data.initialItems.forEach(item => {
           const itemRef = doc(collection(db, "items"));
@@ -247,7 +287,7 @@ function AppLayout() {
 
           batch.set(itemRef, {
             id: itemRef.id,
-            storeId: profile.storeId,
+            storeId: activeStoreId,
             name: item.name,
             // Generate a simple SKU if one isn't provided
             sku: `PROD-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,

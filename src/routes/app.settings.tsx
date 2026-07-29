@@ -40,26 +40,30 @@ function SettingsPage() {
   const isRequestor = role === "requestor";
   const isManager = role === "manager";
 
-  const defaultTab = tab || (isAdmin ? "store" : "profile");
+  const defaultTab = tab || (isAdmin || isManager ? "store" : "profile");
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="text-sm text-muted-foreground">{isAdmin ? "System configuration and management" : "Manage your account and preferences"}</p>
+        <p className="text-sm text-muted-foreground">{isAdmin || isManager ? "System configuration and store operations management" : "Manage your account and preferences"}</p>
       </div>
 
       <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="w-full justify-start overflow-x-auto">
           <TabsTrigger value="profile">Profile</TabsTrigger>
-          {isAdmin && (
+          {(isAdmin || isManager) && (
             <>
               <TabsTrigger value="store">Store Info</TabsTrigger>
-              <TabsTrigger value="subscription">Subscription & Upgrade</TabsTrigger>
-              <TabsTrigger value="branding">Appearance</TabsTrigger>
               <TabsTrigger value="sector" className="capitalize">{sector.type} Rules</TabsTrigger>
               <TabsTrigger value="customers">{sector.labels.customers}</TabsTrigger>
               <TabsTrigger value="categories">Categories</TabsTrigger>
+            </>
+          )}
+          {isAdmin && (
+            <>
+              <TabsTrigger value="subscription">Subscription & Upgrade</TabsTrigger>
+              <TabsTrigger value="branding">Appearance</TabsTrigger>
               <TabsTrigger value="custom-fields">Custom Fields</TabsTrigger>
               <TabsTrigger value="locations">Locations</TabsTrigger>
               <TabsTrigger value="reorder-defaults">Reorder</TabsTrigger>
@@ -75,16 +79,10 @@ function SettingsPage() {
           <TabsContent value="profile">
             <ErrorBoundary><ProfileSettings /></ErrorBoundary>
           </TabsContent>
-          {isAdmin && (
+          {(isAdmin || isManager) && (
             <>
               <TabsContent value="store">
                 <ErrorBoundary><StoreSettings /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="subscription">
-                <ErrorBoundary><SmartFeatures /></ErrorBoundary>
-              </TabsContent>
-              <TabsContent value="branding">
-                <ErrorBoundary><StoreBranding /></ErrorBoundary>
               </TabsContent>
               <TabsContent value="sector">
                 <ErrorBoundary>
@@ -112,6 +110,16 @@ function SettingsPage() {
               <TabsContent value="categories">
                 <ErrorBoundary><CategoryManager /></ErrorBoundary>
               </TabsContent>
+            </>
+          )}
+          {isAdmin && (
+            <>
+              <TabsContent value="subscription">
+                <ErrorBoundary><SmartFeatures /></ErrorBoundary>
+              </TabsContent>
+              <TabsContent value="branding">
+                <ErrorBoundary><StoreBranding /></ErrorBoundary>
+              </TabsContent>
               <TabsContent value="custom-fields">
                 <ErrorBoundary><CustomFieldManager /></ErrorBoundary>
               </TabsContent>
@@ -125,8 +133,8 @@ function SettingsPage() {
                 <ErrorBoundary><SmartFeatures /></ErrorBoundary>
               </TabsContent>
               <TabsContent value="users">
-                  <ErrorBoundary><UserManagement /></ErrorBoundary>
-                </TabsContent>
+                <ErrorBoundary><UserManagement /></ErrorBoundary>
+              </TabsContent>
               <TabsContent value="system">
                 <ErrorBoundary><SystemSettings /></ErrorBoundary>
               </TabsContent>

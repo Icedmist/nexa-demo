@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import { useCurrency } from "@/hooks/useCurrency";
 import { PaymentDialog } from "./PaymentDialog";
 
 interface SmartFeature {
@@ -120,6 +121,7 @@ const SMART_FEATURES_LIST: SmartFeature[] = [
 export function SmartFeatures() {
   const { flags } = useFeatureFlags();
   const { settings, updateSettings } = useSystemSettings();
+  const { formatCurrency, currencySymbol } = useCurrency();
   const currentTier = flags.planId || "starter"; // "starter", "professional", "enterprise"
 
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -491,7 +493,7 @@ export function SmartFeatures() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-foreground">Starter License</span>
                   <Badge className="bg-teal-500/10 hover:bg-teal-500/10 text-teal-700 dark:text-teal-300 border-none text-[10px] font-bold">
-                    Free / $0
+                    Free / {currencySymbol}0
                   </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -531,7 +533,7 @@ export function SmartFeatures() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-foreground">Professional License</span>
                   <Badge className="bg-purple-500/10 hover:bg-purple-500/10 text-purple-700 dark:text-purple-300 border-none text-[10px] font-bold">
-                    $150 / mo
+                    {formatCurrency(6500)} / mo
                   </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
@@ -564,7 +566,7 @@ export function SmartFeatures() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-foreground">Enterprise License</span>
                   <Badge className="bg-blue-500/10 hover:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-none text-[10px] font-bold">
-                    $450 / mo
+                    {formatCurrency(45000)} / mo
                   </Badge>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">

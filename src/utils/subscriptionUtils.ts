@@ -14,7 +14,8 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
       crossBranchVisibility: false,
       b2bMarketplace: false,
       maxBranches: 1,
-      aiAssistant: false
+      aiAssistant: false,
+      retentionEngineEmailV2: true
     }
   },
   {
@@ -29,7 +30,8 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
       crossBranchVisibility: true,
       b2bMarketplace: false,
       maxBranches: 3,
-      aiAssistant: false
+      aiAssistant: false,
+      retentionEngineEmailV2: true
     }
   },
   {
@@ -44,7 +46,8 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
       crossBranchVisibility: true,
       b2bMarketplace: true,
       maxBranches: 10,
-      aiAssistant: true
+      aiAssistant: true,
+      retentionEngineEmailV2: true
     }
   }
 ];

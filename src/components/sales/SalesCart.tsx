@@ -116,8 +116,8 @@ export function SalesCart({ open, onOpenChange, items, onAdd, onRemove, onClear 
             <>
               {/* Cart items */}
               <div className="mt-3 flex-1 space-y-2 overflow-y-auto">
-                {items.map((ci) => (
-                  <div key={ci.item.id} className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
+                {items.map((ci, index) => (
+                  <div key={`${ci.item.id}-${index}`} className="flex items-center gap-3 rounded-xl border border-border bg-muted/30 p-3">
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted/50">
                       {ci.item.imageUrl ? (
                         <img src={ci.item.imageUrl} alt={ci.item.name} className="h-full w-full object-cover" />

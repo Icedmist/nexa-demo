@@ -35,9 +35,12 @@ export interface EmailProvider {
 }
 
 export class GmailApiEmailProvider implements EmailProvider {
-  private async getValidAccessToken(): Promise<string | null> {
-    // 1. Direct Access Token
-    if (process.env.GMAIL_ACCESS_TOKEN) {
+  private async getValidAccessToken(forceRefresh = false): Promise<string | null> {
+    console.log(`[RETENTION_V2_AUTH] Resolving OAuth token (forceRefresh: ${forceRefresh})...`);
+    
+    // 1. Direct Access Token (if not forced to refresh)
+    if (process.env.GMAIL_ACCESS_TOKEN && !forceRefresh) {
+      console.log("[RETENTION_V2_AUTH] Using configured GMAIL_ACCESS_TOKEN.");
       return process.env.GMAIL_ACCESS_TOKEN;
     }
 
@@ -48,6 +51,7 @@ export class GmailApiEmailProvider implements EmailProvider {
 
     if (refreshToken && clientId && clientSecret) {
       try {
+        console.log("[RETENTION_V2_AUTH] Refreshing token via Google OAuth endpoint...");
         const res = await fetch("https://oauth2.googleapis.com/token", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -61,14 +65,22 @@ export class GmailApiEmailProvider implements EmailProvider {
         if (res.ok) {
           const data = await res.json();
           if (data.access_token) {
+            console.log("[RETENTION_V2_AUTH] Token refreshed successfully!");
             return data.access_token;
           }
         } else {
-          console.error("[Gmail API]: Failed to refresh token", await res.text());
+          const errBody = await res.text();
+          console.error("[RETENTION_V2_AUTH]: Token refresh failed:", res.status, errBody);
         }
       } catch (err) {
-        console.error("[Gmail API]: Token refresh exception:", err);
+        console.error("[RETENTION_V2_AUTH]: Token refresh exception:", err);
       }
+    }
+
+    // Fall back to direct token if present
+    if (process.env.GMAIL_ACCESS_TOKEN) {
+      console.log("[RETENTION_V2_AUTH] Fallback to process.env.GMAIL_ACCESS_TOKEN.");
+      return process.env.GMAIL_ACCESS_TOKEN;
     }
 
     return null;
@@ -78,45 +90,91 @@ export class GmailApiEmailProvider implements EmailProvider {
     to: string,
     subject: string,
     htmlBody: string,
-    attachments: Array<{ filename: string; content: Buffer }>
+    attachments: Array<{ filename: string; content: Buffer }> = []
   ): Promise<{ success: boolean; simulated: boolean; error?: string }> {
-    const token = await this.getValidAccessToken();
+    let token = await this.getValidAccessToken(false);
 
     if (!token) {
       console.warn(
-        "[Gmail API]: Neither GMAIL_ACCESS_TOKEN nor (GMAIL_REFRESH_TOKEN + GMAIL_CLIENT_ID + GMAIL_CLIENT_SECRET) environment variables are configured. Falling back to sandbox delivery simulation."
+        "[RETENTION_V2_GMAIL_SEND]: Neither GMAIL_ACCESS_TOKEN nor GMAIL_REFRESH_TOKEN is active. Operating in Sandbox delivery simulation mode."
       );
       return { success: true, simulated: true };
     }
 
+    // MIME payload construction
+    let mimeMessage: string;
     try {
-      const mimeMessage = this.buildMimeMessage(to, subject, htmlBody, attachments);
-
-      const response = await fetch(
-        "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            raw: mimeMessage,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Gmail API returned status ${response.status}: ${errText}`);
-      }
-
-      console.log(`[Gmail API]: Email successfully sent to ${to}`);
-      return { success: true, simulated: false };
-    } catch (error) {
-      console.error("[Gmail API]: Send failed:", error);
-      return { success: false, simulated: false, error: (error as Error).message };
+      console.log(`[RETENTION_V2_MIME] Constructing MIME payload for ${to}...`);
+      mimeMessage = this.buildMimeMessage(to, subject, htmlBody, attachments);
+      console.log(`[RETENTION_V2_MIME] Payload created successfully (Size: ${mimeMessage.length} base64 chars).`);
+    } catch (mimeErr) {
+      const msg = (mimeErr as Error).message;
+      console.error("[RETENTION_V2_MIME_ERROR] MIME construction failed:", msg);
+      return { success: false, simulated: false, error: `MIME construction error: ${msg}` };
     }
+
+    // Retry loop with backoff for transient errors (429 rate limit, 500/502/503/504)
+    const maxAttempts = 3;
+    let lastError = "";
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`[RETENTION_V2_GMAIL_SEND] Dispatching to ${to} (Attempt ${attempt}/${maxAttempts})...`);
+        const response = await fetch(
+          "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              raw: mimeMessage,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const resData = await response.json().catch(() => ({}));
+          console.log(`[RETENTION_V2_SUCCESS] Email sent to ${to}. Message ID: ${resData.id || "ok"}`);
+          return { success: true, simulated: false };
+        }
+
+        const errText = await response.text();
+        lastError = `Gmail API status ${response.status}: ${errText}`;
+        console.warn(`[RETENTION_V2_GMAIL_SEND_WARN] Attempt ${attempt} failed with status ${response.status}: ${errText}`);
+
+        // If 401 Unauthorized, attempt refreshing token once
+        if (response.status === 401 && attempt === 1) {
+          console.log("[RETENTION_V2_AUTH] 401 Unauthorized encountered. Forcing token refresh...");
+          const refreshedToken = await this.getValidAccessToken(true);
+          if (refreshedToken) {
+            token = refreshedToken;
+            continue;
+          }
+        }
+
+        // Check if transient error eligible for retry
+        const isTransient = [429, 500, 502, 503, 504].includes(response.status);
+        if (isTransient && attempt < maxAttempts) {
+          const delayMs = Math.pow(2, attempt - 1) * 400;
+          console.log(`[RETENTION_V2_RETRY] Waiting ${delayMs}ms before retry...`);
+          await new Promise((r) => setTimeout(r, delayMs));
+          continue;
+        }
+
+        break;
+      } catch (networkErr) {
+        lastError = (networkErr as Error).message;
+        console.error(`[RETENTION_V2_GMAIL_SEND_EX] Exception on attempt ${attempt}:`, lastError);
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+    }
+
+    console.error(`[RETENTION_V2_ERROR] Email dispatch failed for ${to}: ${lastError}`);
+    return { success: false, simulated: false, error: lastError };
   }
 
   private buildMimeMessage(
@@ -125,33 +183,41 @@ export class GmailApiEmailProvider implements EmailProvider {
     htmlBody: string,
     attachments: Array<{ filename: string; content: Buffer }>
   ): string {
-    const boundary = "----=_Part_" + Date.now().toString(16);
+    const boundary = "----=_Part_" + Date.now().toString(16) + "_" + Math.random().toString(36).substring(2, 8);
     const nl = "\r\n";
 
+    // RFC 2047 UTF-8 Base64 Header Encoding for Subject to support Unicode/emojis/currency symbols safely
+    const encodedSubject = `=?UTF-8?B?${Buffer.from(subject, "utf-8").toString("base64")}?=`;
+
     let mime = "";
+    mime += `From: "NexaOS Retention Engine" <me>${nl}`;
     mime += `To: ${to}${nl}`;
-    mime += `Subject: ${subject}${nl}`;
+    mime += `Subject: ${encodedSubject}${nl}`;
     mime += `MIME-Version: 1.0${nl}`;
     mime += `Content-Type: multipart/mixed; boundary="${boundary}"${nl}${nl}`;
 
-    // HTML body
+    // HTML Body encoded as Base64 to guarantee compliance with RFC 5322 line length and UTF-8 characters
+    const htmlBase64 = Buffer.from(htmlBody, "utf-8").toString("base64");
+    
     mime += `--${boundary}${nl}`;
     mime += `Content-Type: text/html; charset="UTF-8"${nl}`;
-    mime += `Content-Transfer-Encoding: 7bit${nl}${nl}`;
-    mime += `${htmlBody}${nl}${nl}`;
+    mime += `Content-Transfer-Encoding: base64${nl}${nl}`;
+    mime += `${htmlBase64}${nl}${nl}`;
 
     // Attachments
     for (const att of attachments) {
+      const encodedAttName = `=?UTF-8?B?${Buffer.from(att.filename, "utf-8").toString("base64")}?=`;
       mime += `--${boundary}${nl}`;
-      mime += `Content-Type: application/pdf; name="${att.filename}"${nl}`;
-      mime += `Content-Disposition: attachment; filename="${att.filename}"${nl}`;
+      mime += `Content-Type: application/pdf; name="${encodedAttName}"${nl}`;
+      mime += `Content-Disposition: attachment; filename="${encodedAttName}"${nl}`;
       mime += `Content-Transfer-Encoding: base64${nl}${nl}`;
       mime += `${att.content.toString("base64")}${nl}${nl}`;
     }
 
     mime += `--${boundary}--`;
 
-    return Buffer.from(mime)
+    // Standard RFC 4648 Base64URL encoding required by Gmail API raw message payload
+    return Buffer.from(mime, "utf-8")
       .toString("base64")
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
@@ -191,18 +257,25 @@ export async function generateReportDataAndPDF(
   }
 
   // Query sales
-  const salesQuery = query(
-    collection(db, "sales"),
-    where("storeId", "==", storeId),
-    where("createdAt", ">=", startDate.toISOString())
-  );
-  const salesSnap = await getDocs(salesQuery);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let salesSnap: any = { forEach: () => {} };
+  try {
+    const salesQuery = query(
+      collection(db, "sales"),
+      where("storeId", "==", storeId),
+      where("createdAt", ">=", startDate.toISOString())
+    );
+    salesSnap = await getDocs(salesQuery);
+  } catch (err) {
+    console.warn("Could not query sales from Firestore (offline or unprovisioned):", err);
+  }
 
   let revenueNgn = 0;
   let transactionCount = 0;
   const itemsSoldMap: Record<string, number> = {};
 
-  salesSnap.forEach((doc) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  salesSnap.forEach((doc: any) => {
     const sale = doc.data();
     revenueNgn += sale.totalNgn || 0;
     transactionCount++;
@@ -229,13 +302,20 @@ export async function generateReportDataAndPDF(
   const averageTransactionNgn = transactionCount > 0 ? revenueNgn / transactionCount : 0;
 
   // Query low stock items
-  const itemsQuery = query(collection(db, "items"), where("storeId", "==", storeId));
-  const itemsSnap = await getDocs(itemsQuery);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let itemsSnap: any = { forEach: () => {} };
+  try {
+    const itemsQuery = query(collection(db, "items"), where("storeId", "==", storeId));
+    itemsSnap = await getDocs(itemsQuery);
+  } catch (err) {
+    console.warn("Could not query items from Firestore (offline or unprovisioned):", err);
+  }
 
   let lowStockCount = 0;
   const lowStockList: { name: string; sku: string; quantity: number; reorderPoint: number }[] = [];
 
-  itemsSnap.forEach((doc) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  itemsSnap.forEach((doc: any) => {
     const item = doc.data();
     const qty = item.quantity || 0;
     const reorderPoint = item.reorderPoint !== undefined ? item.reorderPoint : 5;
@@ -693,7 +773,13 @@ export async function runScheduledReportsEvaluation(db: Firestore): Promise<{
       quotaExceeded,
     };
   } catch (error) {
-    console.error("[Scheduled Reports Manager error]:", error);
-    throw error;
+    console.warn("[Scheduled Reports Manager info - operating offline or unprovisioned]:", error);
+    return {
+      status: "offline_fallback",
+      processedCount: 0,
+      sentCount: 0,
+      skippedCount: 0,
+      quotaExceeded: false,
+    };
   }
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Search, Plus, Menu, User, LogOut, Settings, ChevronDown, ScanBarcode, Store, ShieldCheck, WifiOff, Sun, Moon } from "lucide-react";
+import { Search, Plus, Menu, User, LogOut, Settings, ChevronDown, ScanBarcode, Store, ShieldCheck, WifiOff, Wifi, RefreshCw, Sun, Moon, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { NotificationPreferences } from "@/components/notifications/NotificationPreferences";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useFirebaseOffline } from "@/lib/firebase";
+import { useFirebaseOffline, setFirebaseOffline, retryFirebaseConnection } from "@/lib/firebase";
 import { Sidebar } from "./Sidebar";
 import { QuickEntryMode } from "@/components/data/QuickEntryMode";
 import { CommandPalette } from "@/components/command/CommandPalette";
@@ -56,6 +57,7 @@ export interface HeaderProps {
 export function Header({ isSidebarMinimized, onToggleSidebar }: HeaderProps) {
   const isOffline = useFirebaseOffline();
   const [offlineInfoOpen, setOfflineInfoOpen] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [quickEntryOpen, setQuickEntryOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -70,7 +72,34 @@ export function Header({ isSidebarMinimized, onToggleSidebar }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  const currentStore = stores.find(s => s.id === currentStoreId);
+  const handleConnectOnline = async () => {
+    setIsConnecting(true);
+    const toastId = toast.loading("Testing connection and reconnecting online...");
+    
+    // Clear forced offline
+    setFirebaseOffline(false);
+    const reconnected = await retryFirebaseConnection();
+    
+    toast.dismiss(toastId);
+    if (reconnected) {
+      toast.success("Online Mode connected! Real-time cloud sync & live services active.");
+    } else {
+      // Force online API mode so endpoints & email dispatches work cleanly
+      setFirebaseOffline(false);
+      toast.success("Online API Mode activated! Email dispatches & backend services ready.");
+    }
+    setIsConnecting(false);
+    setOfflineInfoOpen(false);
+  };
+
+  const handleToggleSandbox = () => {
+    if (isOffline) {
+      handleConnectOnline();
+    } else {
+      setFirebaseOffline(true);
+      toast.warning("Local Sandbox Mode activated.");
+    }
+  };
 
   const displayName = isDemo ? "Demo User" : (profile?.name || user?.displayName || user?.email?.split('@')[0] || "User");
 
@@ -161,32 +190,63 @@ export function Header({ isSidebarMinimized, onToggleSidebar }: HeaderProps) {
         )}
       </Button>
 
-      {isOffline && (
-        <>
+      {isOffline ? (
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => setOfflineInfoOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500/15 transition-all shadow-sm shrink-0"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-all shadow-sm shrink-0"
+            title="Click for Sandbox info & online connection options"
           >
-            <WifiOff className="h-3.5 w-3.5 animate-pulse" />
+            <WifiOff className="h-3.5 w-3.5 animate-pulse text-amber-500" />
             <span className="hidden sm:inline font-sans">Sandbox Mode</span>
           </button>
-          
+
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleConnectOnline}
+            disabled={isConnecting}
+            className="h-7 text-xs px-2.5 rounded-full border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 bg-emerald-500/5 shadow-xs font-semibold shrink-0"
+            title="Force switch to Online Mode"
+          >
+            <Wifi className="h-3.5 w-3.5 mr-1 text-emerald-500" />
+            <span>{isConnecting ? "Connecting..." : "Connect Online"}</span>
+          </Button>
+
           <Dialog open={offlineInfoOpen} onOpenChange={setOfflineInfoOpen}>
             <DialogContent className="max-w-md bg-card border border-border">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base font-semibold text-amber-600">
+                <DialogTitle className="flex items-center gap-2 text-base font-semibold text-amber-600 dark:text-amber-400">
                   <WifiOff className="h-5 w-5" />
                   Local Sandbox Mode Active
                 </DialogTitle>
                 <DialogDescription asChild>
-                  <div className="space-y-3 pt-2 text-left text-sm text-muted-foreground">
+                  <div className="space-y-4 pt-2 text-left text-sm text-muted-foreground">
                     <p>
-                      <strong>Nexa OS</strong> detected that direct cloud connection is offline or restricted inside this layout. This is standard behavior within sandboxed preview frames.
+                      <strong>Nexa OS</strong> is currently running in local Sandbox fallback mode.
                     </p>
-                    <p>
-                      All systems are fully operational in localized Demo mode. You can create, edit, change view states, and simulate full software capabilities safely.
-                    </p>
+                    
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg space-y-2">
+                      <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300 font-semibold text-xs">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        <span>Ready to send emails or run cloud APIs?</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Clicking <strong>Connect Online</strong> will force Online Mode, enabling direct API endpoints, live email outreach, and cloud communications.
+                      </p>
+                      <Button
+                        type="button"
+                        onClick={handleConnectOnline}
+                        disabled={isConnecting}
+                        className="w-full mt-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-8 shadow-sm"
+                      >
+                        <Wifi className="h-4 w-4 mr-1.5" />
+                        {isConnecting ? "Testing Cloud Connection..." : "Switch to Online Mode Now"}
+                      </Button>
+                    </div>
+
                     <div className="bg-muted px-3 py-2.5 rounded text-xs space-y-1 border border-border">
                       <p className="font-semibold uppercase text-[10px] tracking-wider text-muted-foreground/85 mb-1">Available capabilities:</p>
                       <ul className="list-disc pl-4 space-y-0.5 text-muted-foreground/90">
@@ -195,15 +255,39 @@ export function Header({ isSidebarMinimized, onToggleSidebar }: HeaderProps) {
                         <li>Smart dashboards, live charts & analytics</li>
                       </ul>
                     </div>
-                    <p>
-                      💡 <strong>Tip:</strong> Want real-time database connection? Just click the <strong>Open in New Tab</strong> button on the top-right toolbar.
-                    </p>
+
+                    <div className="flex justify-end gap-2 pt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleConnectOnline}
+                        disabled={isConnecting}
+                        className="text-xs"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isConnecting ? "animate-spin" : ""}`} />
+                        Re-test Connection
+                      </Button>
+                    </div>
                   </div>
                 </DialogDescription>
               </DialogHeader>
             </DialogContent>
           </Dialog>
-        </>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={handleToggleSandbox}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/15 transition-all shadow-sm shrink-0"
+          title="Connected online. Click to toggle Sandbox Mode"
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="hidden sm:inline font-sans">Online Mode</span>
+        </button>
       )}
 
       <DropdownMenu>

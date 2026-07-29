@@ -1092,9 +1092,9 @@ export function SalesQuickScanCheckout() {
               <p className="text-[10px] text-muted-foreground/60">Type a SKU above or click simulation triggers to add.</p>
             </div>
           ) : (
-            cartItems.map(ci => (
+            cartItems.map((ci, index) => (
               <div 
-                key={ci.item.id}
+                key={`${ci.item.id}-${index}`}
                 className="flex items-center justify-between gap-2 p-2 rounded-xl bg-muted/20 border border-border/30 animate-in fade-in slide-in-from-bottom-2 duration-200"
               >
                 <div className="flex items-center gap-2 min-w-0">

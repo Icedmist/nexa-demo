@@ -24,7 +24,8 @@ import {
   Mail,
   Target,
   TrendingUp,
-  Award
+  Award,
+  Sparkles
 } from "lucide-react";
 
 export const Route = createFileRoute("/app/super-admin/retention")({
@@ -334,7 +335,7 @@ function SuperAdminRetention() {
         list.push({ triggerId: doc.id, ...doc.data() as Omit<RetentionTriggerConfig, "triggerId"> });
       });
       setTriggers(list);
-    });
+    }, (err) => console.warn("Retention triggers listener info:", err.message));
 
     // Subscribe to Business Report Deliveries
     const unsubDeliveries = onSnapshot(collection(db, "reportDeliveries"), (snap) => {
@@ -348,7 +349,7 @@ function SuperAdminRetention() {
         return dateB - dateA;
       });
       setDeliveries(list);
-    });
+    }, (err) => console.warn("Report deliveries listener info:", err.message));
 
     // 2. Subscribe to Retention Events
     const unsubEvents = onSnapshot(collection(db, "retentionEvents"), (snap) => {
@@ -358,7 +359,7 @@ function SuperAdminRetention() {
       });
       list.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
       setEvents(list);
-    });
+    }, (err) => console.warn("Retention events listener info:", err.message));
 
     // 3. Subscribe to Stores for At-Risk calculation
     const unsubStores = onSnapshot(collection(db, "stores"), (snap) => {
@@ -367,7 +368,7 @@ function SuperAdminRetention() {
         list.push({ id: doc.id, ...doc.data() as Omit<RetentionStore, "id"> });
       });
       setStores(list);
-    });
+    }, (err) => console.warn("Stores listener info:", err.message));
 
     // 4. Subscribe to Referrals
     const unsubReferrals = onSnapshot(collection(db, "referrals"), (snap) => {
@@ -376,7 +377,7 @@ function SuperAdminRetention() {
         list.push({ id: doc.id, ...doc.data() as Omit<RetentionReferral, "id"> });
       });
       setReferrals(list);
-    });
+    }, (err) => console.warn("Referrals listener info:", err.message));
 
     // 5. Subscribe to Agents
     const unsubAgents = onSnapshot(collection(db, "agents"), (snap) => {
@@ -385,6 +386,9 @@ function SuperAdminRetention() {
         list.push({ agentId: doc.id, ...doc.data() as Omit<RetentionAgent, "agentId"> });
       });
       setAgents(list);
+      setLoading(false);
+    }, (err) => {
+      console.warn("Agents listener info:", err.message);
       setLoading(false);
     });
 
@@ -627,6 +631,48 @@ function SuperAdminRetention() {
       setSelectedTemplate(found);
       setEmailSubject(found.subject);
       setEmailBody(found.htmlBody);
+    }
+  };
+
+  const [generatingAi, setGeneratingAi] = useState(false);
+
+  const handleGenerateAiOutreach = async () => {
+    setGeneratingAi(true);
+    const toastId = toast.loading("Invoking Gemini API to generate personalized retention email copy...");
+    try {
+      const store = stores.find(s => s.id === emailRecipientStoreId);
+      const storeName = store ? (store.storeName || store.name || "Nexa Merchant") : "Main Warehouse";
+      const managerName = store ? (store.ownerName || store.manager || "Store Manager") : "Store Manager";
+      const lastSaleTime = store?.lastSaleDate ? new Date(store.lastSaleDate).getTime() : new Date(store?.createdAt || Date.now()).getTime();
+      const daysInactive = Math.floor((Date.now() - lastSaleTime) / (1000 * 60 * 60 * 24)) || 3;
+
+      const res = await fetch("/api/retention/generate-ai-outreach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storeName,
+          daysInactive,
+          managerName,
+          tone: "engaging"
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to generate AI outreach copy");
+      }
+
+      const data = await res.json();
+      if (data.subject) setEmailSubject(data.subject);
+      if (data.htmlBody) setEmailBody(data.htmlBody);
+
+      toast.dismiss(toastId);
+      toast.success(`AI Retention Copy generated via ${data.source || 'Gemini AI'}!`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      toast.dismiss(toastId);
+      toast.error((err as Error).message || "AI copy generation failed.");
+    } finally {
+      setGeneratingAi(false);
     }
   };
 
@@ -1344,9 +1390,22 @@ function SuperAdminRetention() {
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center pb-1">
                     <label className="text-[10px] uppercase font-bold text-muted-foreground">HTML Template Code</label>
-                    <span className="text-[8px] text-teal-600 font-mono">Available Tags: {"{{storeName}}"}, {"{{manager}}"}, {"{{days}}"}</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateAiOutreach}
+                        disabled={generatingAi}
+                        className="h-6 text-[9px] px-2 gap-1 border-teal-500/30 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950 font-bold"
+                      >
+                        <Sparkles className="h-3 w-3 text-teal-600 animate-pulse" />
+                        {generatingAi ? "Generating..." : "AI Generate Copy"}
+                      </Button>
+                      <span className="text-[8px] text-teal-600 font-mono">Available Tags: {"{{storeName}}"}, {"{{manager}}"}, {"{{days}}"}</span>
+                    </div>
                   </div>
                   <textarea
                     rows={12}

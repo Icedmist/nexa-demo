@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Plus, Upload, QrCode, HelpCircle, Package } from "lucide-react";
+import { Plus, Upload, QrCode, HelpCircle, Package, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useSector } from "@/hooks/useSector";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,10 @@ import { Card } from "@/components/ui/card";
 import { CSVExportButton, type CSVColumn } from "@/components/data/CSVExportButton";
 import { CSVImportSheet, type ImportField } from "@/components/data/CSVImportSheet";
 import { CSVImportGuideModal } from "@/components/data/CSVImportGuideModal";
+import { CSVProcessorStudio } from "@/components/data/CSVProcessorStudio";
 import { QuickEntryModal } from "@/components/catalog/QuickEntryModal";
 import { InStoreQRGeneratorModal } from "@/components/catalog/InStoreQRGeneratorModal";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -116,6 +118,7 @@ function CatalogPage() {
   const [movementItemId, setMovementItemId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [isCsvStudioOpen, setIsCsvStudioOpen] = useState(false);
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [isInStoreQRGeneratorOpen, setIsInStoreQRGeneratorOpen] = useState(false);
   const [view, setView] = useState<"list" | "grid">(() => {
@@ -302,57 +305,77 @@ function CatalogPage() {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">{sector.t("catalog")}</h1>
-          <p className="text-sm text-muted-foreground">{items.length} {sector.t("item").toLowerCase()}s</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">{sector.t("catalog")}</h1>
+            <p className="text-sm text-muted-foreground">{items.length} {sector.t("item").toLowerCase()}s</p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <CSVExportButton
+              data={items}
+              columns={csvColumns}
+              filename="stackwise-items"
+            />
+            <PermissionGate permission="create_item">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="inline-flex items-center gap-1.5 border-purple-500/30 hover:border-purple-500 bg-purple-500/5 hover:bg-purple-500/10 text-purple-700 dark:text-purple-300 font-semibold"
+                onClick={() => setIsCsvStudioOpen(true)}
+              >
+                <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <span className="hidden xs:inline sm:inline">Excel / CSV AI Studio</span>
+                <span className="xs:hidden sm:hidden">AI Studio</span>
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="create_item">
+              <Button variant="outline" size="sm" className="inline-flex items-center gap-1.5" onClick={() => setImportOpen(true)}>
+                <Upload className="h-4 w-4" />
+                <span>Import</span>
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="create_item">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="inline-flex items-center gap-1.5 border-emerald-500/30 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold"
+                onClick={() => setGuideOpen(true)}
+              >
+                <HelpCircle className="h-4 w-4" />
+                <span className="hidden xs:inline sm:inline">CSV & AI Guide</span>
+                <span className="xs:hidden sm:hidden">Guide</span>
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="create_item">
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => setIsInStoreQRGeneratorOpen(true)} 
+                className="inline-flex items-center gap-1.5 border-blue-200 hover:border-blue-400 bg-blue-500/5 hover:bg-blue-500/10 text-blue-700 font-semibold"
+              >
+                <QrCode className="h-4 w-4" />
+                <span className="hidden sm:inline">In-Store QR</span>
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="create_item">
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => setIsQuickEntryOpen(true)} 
+                className="inline-flex items-center gap-1.5 border-amber-200 hover:border-amber-400 bg-amber-500/5 hover:bg-amber-500/10 text-amber-700 font-semibold"
+              >
+                <QrCode className="h-4 w-4" />
+                <span className="hidden sm:inline">Quick Entry</span>
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="create_item">
+              <Button onClick={openCreate} size="sm" className="inline-flex items-center gap-1.5">
+                <Plus className="h-4 w-4" />
+                <span>{sector.primaryAction || "New Item"}</span>
+              </Button>
+            </PermissionGate>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <CSVExportButton
-            data={items}
-            columns={csvColumns}
-            filename="stackwise-items"
-          />
-          <PermissionGate permission="create_item">
-            <Button variant="outline" size="sm" className="hidden gap-1.5 sm:inline-flex" onClick={() => setImportOpen(true)}>
-              <Upload className="h-4 w-4" />Import
-            </Button>
-          </PermissionGate>
-          <PermissionGate permission="create_item">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="hidden gap-1.5 sm:inline-flex border-emerald-500/30 hover:border-emerald-500 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold"
-              onClick={() => setGuideOpen(true)}
-            >
-              <HelpCircle className="h-4 w-4" />CSV & AI Guide
-            </Button>
-          </PermissionGate>
-          <PermissionGate permission="create_item">
-            <Button 
-              variant="outline"
-              onClick={() => setIsInStoreQRGeneratorOpen(true)} 
-              className="hidden gap-1.5 sm:inline-flex border-blue-200 hover:border-blue-400 bg-blue-500/5 hover:bg-blue-500/10 text-blue-700 font-semibold"
-            >
-              <QrCode className="h-4 w-4" />In-Store QR
-            </Button>
-          </PermissionGate>
-          <PermissionGate permission="create_item">
-            <Button 
-              variant="outline"
-              onClick={() => setIsQuickEntryOpen(true)} 
-              className="hidden gap-1.5 sm:inline-flex border-amber-200 hover:border-amber-400 bg-amber-500/5 hover:bg-amber-500/10 text-amber-700 font-semibold"
-            >
-              <QrCode className="h-4 w-4" />Quick Entry
-            </Button>
-          </PermissionGate>
-          <PermissionGate permission="create_item">
-            <Button onClick={openCreate} className="hidden gap-1.5 sm:inline-flex">
-              <Plus className="h-4 w-4" />{sector.primaryAction || "New Item"}
-            </Button>
-          </PermissionGate>
-        </div>
-      </div>
 
       <Card className="p-4">
         <CatalogFilters 
@@ -542,6 +565,12 @@ function CatalogPage() {
         open={guideOpen}
         onOpenChange={setGuideOpen}
       />
+
+      <Dialog open={isCsvStudioOpen} onOpenChange={setIsCsvStudioOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-6">
+          <CSVProcessorStudio onClose={() => setIsCsvStudioOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

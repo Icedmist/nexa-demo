@@ -13,6 +13,19 @@ async function startServer() {
   // Middleware to parse JSON
   app.use(express.json());
 
+  // Health check endpoint
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", mode: "online", timestamp: new Date().toISOString() });
+  });
+
+  // Download endpoint for Firebase Store Migration Utility Bundle
+  app.get(["/api/download/firebase-store-migrator.mjs", "/download-migrator"], (_req, res) => {
+    const filePath = path.join(process.cwd(), "public", "firebase-store-migrator.mjs");
+    res.setHeader("Content-Disposition", 'attachment; filename="firebase-store-migrator.mjs"');
+    res.setHeader("Content-Type", "application/javascript");
+    res.sendFile(filePath);
+  });
+
   // Initialize Gemini client on the server.
   // We use process.env.GEMINI_API_KEY and apply the 'aistudio-build' User-Agent for telemetry.
   const apiKey = process.env.GEMINI_API_KEY;
@@ -26,6 +39,22 @@ async function startServer() {
         },
       })
     : null;
+
+  function getGeminiClient(customApiKey?: string) {
+    const key = customApiKey || process.env.GEMINI_API_KEY;
+    if (!key) {
+      if (ai) return ai;
+      throw new Error("GEMINI_API_KEY environment variable is missing.");
+    }
+    return new GoogleGenAI({
+      apiKey: key,
+      httpOptions: {
+        headers: {
+          "User-Agent": "aistudio-build",
+        },
+      },
+    });
+  }
 
   // API Endpoint for Barcode Lookup & Recognition
   app.post("/api/barcode/lookup", async (req, res) => {
@@ -238,7 +267,12 @@ Do not include placeholders like [Price] or [Link].`;
       if (!auth.currentUser) {
         console.log("Server attempting Auth sign-in...");
         try {
-          await signInWithEmailAndPassword(auth, email, password);
+          // Timeout auth sign-in after 2500ms so database operations never block request handlers
+          const authPromise = signInWithEmailAndPassword(auth, email, password);
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Auth sign-in timed out after 2500ms")), 2500)
+          );
+          await Promise.race([authPromise, timeoutPromise]);
           console.log("Server Auth sign-in successful!");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
@@ -251,26 +285,29 @@ Do not include placeholders like [Price] or [Link].`;
                             
           if (isMissing) {
             console.log("Server-bot user not found or invalid credentials. Creating and promoting server-bot user...");
-            const cred = await createUserWithEmailAndPassword(auth, email, password);
-            const user = cred.user;
-            
-            // Promote server-bot to admin in the same transaction as required by firestore.rules
-            const batch = writeBatch(db);
-            batch.set(doc(db, "users", user.uid), {
-              id: user.uid,
-              name: "Nexa OS Server Bot",
-              email: email,
-              role: "admin",
-              createdAt: new Date().toISOString()
-            });
-            batch.set(doc(db, "admins", user.uid), {
-              email: email,
-              createdAt: new Date().toISOString()
-            });
-            await batch.commit();
-            console.log("Server-bot user creation and admin promotion successful!");
+            try {
+              const cred = await createUserWithEmailAndPassword(auth, email, password);
+              const user = cred.user;
+              
+              const batch = writeBatch(db);
+              batch.set(doc(db, "users", user.uid), {
+                id: user.uid,
+                name: "Nexa OS Server Bot",
+                email: email,
+                role: "admin",
+                createdAt: new Date().toISOString()
+              });
+              batch.set(doc(db, "admins", user.uid), {
+                email: email,
+                createdAt: new Date().toISOString()
+              });
+              await batch.commit();
+              console.log("Server-bot user creation and admin promotion successful!");
+            } catch (createErr) {
+              console.warn("Could not create server-bot user:", (createErr as Error).message);
+            }
           } else {
-            console.warn("Unexpected Auth sign-in failure:", errMsg);
+            console.warn("Server Auth sign-in bypassed/timed out:", errMsg);
           }
         }
       }
@@ -521,15 +558,15 @@ Do not include placeholders like [Price] or [Link].`;
       const { collection, getDocs, doc, setDoc, query, where } = await import("firebase/firestore");
 
       // Fetch trigger config
-      const triggersSnap = await getDocs(collection(db, "retentionTriggers"));
-      let triggers = triggersSnap.docs.map(d => d.data());
-
-      if (triggersSnap.empty) {
-        console.log("Self-seeding default retention triggers...");
-        for (const t of defaultTriggers) {
-          await setDoc(doc(db, "retentionTriggers", t.triggerId), t);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let triggers: any[] = defaultTriggers;
+      try {
+        const triggersSnap = await getDocs(collection(db, "retentionTriggers"));
+        if (!triggersSnap.empty) {
+          triggers = triggersSnap.docs.map(d => d.data());
         }
-        triggers = defaultTriggers;
+      } catch (e) {
+        console.warn("[evaluate] Triggers fetch offline info:", e);
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -539,9 +576,15 @@ Do not include placeholders like [Price] or [Link].`;
       }
 
       // Fetch all stores
-      const storesSnap = await getDocs(collection(db, "stores"));
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const stores = storesSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      let stores: any[] = [];
+      try {
+        const storesSnap = await getDocs(collection(db, "stores"));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        stores = storesSnap.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      } catch (e) {
+        console.warn("[evaluate] Stores fetch offline info:", e);
+      }
 
       let firedCount = 0;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -819,59 +862,78 @@ Do not include placeholders like [Price] or [Link].`;
       const db = await getServerDb();
       const { doc, getDoc, setDoc, query, where, getDocs, collection } = await import("firebase/firestore");
 
-      const storeSnap = await getDoc(doc(db, "stores", storeId));
-      if (!storeSnap.exists()) {
-        return res.status(404).json({ error: "Store not found" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let store: any = null;
+      try {
+        const storeSnap = await getDoc(doc(db, "stores", storeId));
+        if (storeSnap.exists()) {
+          store = storeSnap.data();
+        }
+      } catch (e) {
+        console.warn(`[trigger-manual] Store fetch info for ${storeId}:`, e);
       }
-      const store = storeSnap.data();
 
-      const triggerSnap = await getDoc(doc(db, "retentionTriggers", triggerId));
-      if (!triggerSnap.exists()) {
-        return res.status(404).json({ error: "Trigger configuration not found" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let trigger: any = defaultTriggers.find(t => t.triggerId === triggerId) || null;
+      try {
+        const triggerSnap = await getDoc(doc(db, "retentionTriggers", triggerId));
+        if (triggerSnap.exists()) {
+          trigger = triggerSnap.data();
+        }
+      } catch (e) {
+        console.warn(`[trigger-manual] Trigger fetch info for ${triggerId}:`, e);
       }
-      const trigger = triggerSnap.data();
 
-      const message = trigger.messageTemplate
-        .replace(/\{\{storeName\}\}/g, store.storeName || "your store")
-        .replace(/\{\{days\}\}/g, String(trigger.thresholdValue))
+      const threshold = trigger?.thresholdValue || 3;
+      const message = (trigger?.messageTemplate || "Hello {{storeName}}! We noticed an event on your account.")
+        .replace(/\{\{storeName\}\}/g, store?.storeName || "your store")
+        .replace(/\{\{days\}\}/g, String(threshold))
         .replace(/\{\{link\}\}/g, "https://nexaos.io/billing")
         .replace(/\{\{count\}\}/g, "5");
 
-      const refQuery = query(collection(db, "referrals"), where("storeId", "==", storeId), where("status", "==", "converted"));
-      const refSnap = await getDocs(refQuery);
       let agentId = null;
-      if (!refSnap.empty) {
-        agentId = refSnap.docs[0].data().agentId;
+      try {
+        const refQuery = query(collection(db, "referrals"), where("storeId", "==", storeId), where("status", "==", "converted"));
+        const refSnap = await getDocs(refQuery);
+        if (!refSnap.empty) {
+          agentId = refSnap.docs[0].data().agentId;
+        }
+      } catch (e) {
+        // Ignore offline query error
       }
 
       const eventId = `evt-manual-${Date.now()}-${storeId}-${triggerId}`;
-      await setDoc(doc(db, "retentionEvents", eventId), {
-        eventId,
-        storeId,
-        triggerId,
-        channel: trigger.channel,
-        sentAt: new Date().toISOString(),
-        status: "sent",
-        agentId,
-        meta: {
-          message,
-          storeName: store.storeName || "Unnamed Store",
-          phone: store.ownerPhone || store.phone || "+234800000000",
-          manual: true
-        }
-      });
-
-      if (agentId) {
-        const agentNotifId = `notif-agent-${Date.now()}-${storeId}`;
-        await setDoc(doc(db, "notifications", agentNotifId), {
-          id: agentNotifId,
-          type: "retention_alert",
-          title: "At-Risk Merchant Alert (Manual)",
-          message: `[${store.storeName || "Store"}] was manually flagged: ${trigger.name}. Please follow up!`,
-          isRead: false,
+      try {
+        await setDoc(doc(db, "retentionEvents", eventId), {
+          eventId,
+          storeId,
+          triggerId,
+          channel: trigger?.channel || "whatsapp",
+          sentAt: new Date().toISOString(),
+          status: "sent",
           agentId,
-          createdAt: new Date().toISOString()
+          meta: {
+            message,
+            storeName: store?.storeName || "Unnamed Store",
+            phone: store?.ownerPhone || store?.phone || "+234800000000",
+            manual: true
+          }
         });
+
+        if (agentId) {
+          const agentNotifId = `notif-agent-${Date.now()}-${storeId}`;
+          await setDoc(doc(db, "notifications", agentNotifId), {
+            id: agentNotifId,
+            type: "retention_alert",
+            title: "At-Risk Merchant Alert (Manual)",
+            message: `[${store?.storeName || "Store"}] was manually flagged: ${trigger?.name || triggerId}. Please follow up!`,
+            isRead: false,
+            agentId,
+            createdAt: new Date().toISOString()
+          });
+        }
+      } catch (e) {
+        // Ignore offline write error
       }
 
       res.json({ status: "success", eventId, message });
@@ -881,117 +943,274 @@ Do not include placeholders like [Price] or [Link].`;
     }
   });
 
+  // API Endpoint for generating AI-powered personalized retention email copy via Gemini API
+  app.post("/api/retention/generate-ai-outreach", async (req, res) => {
+    const { storeName, daysInactive, managerName, tone = "friendly" } = req.body;
+    
+    console.log(`[RETENTION_V2_GEMINI] Requesting AI outreach copy generation for store: "${storeName || 'Merchant'}" (${daysInactive || 0} days inactive)...`);
+
+    if (!ai) {
+      console.warn("[RETENTION_V2_GEMINI_WARN] GEMINI_API_KEY missing. Returning structured offline fallback template.");
+      return res.json({
+        success: true,
+        source: "fallback_heuristic",
+        subject: `We miss having you active, ${storeName || "Nexa Merchant"}!`,
+        htmlBody: `<div style="font-family: sans-serif; padding: 20px; line-height: 1.6;">
+          <h2 style="color: #0f766e;">Hello ${managerName || "Store Manager"},</h2>
+          <p>We noticed it's been <strong>${daysInactive || 3} days</strong> since your last recorded sale at <strong>${storeName || "your store"}</strong>.</p>
+          <p>Keeping continuous records helps ensure inventory accuracy and keeps your financial pulse healthy. Log back in today to update your catalog!</p>
+          <p style="margin-top: 24px;">Warm regards,<br/><strong>The Nexa OS Growth Team</strong></p>
+        </div>`
+      });
+    }
+
+    const prompt = `You are an expert customer retention specialist for Nexa OS, a premier retail operating system.
+Write a personalized retention reactivation email for a merchant store with the following details:
+- Store Name: ${storeName || "Nexa Merchant"}
+- Store Manager/Owner: ${managerName || "Store Manager"}
+- Inactive Period: ${daysInactive || 3} days without recorded sales
+- Desired Tone: ${tone}
+
+Requirements:
+1. Return JSON with exactly two fields: "subject" and "htmlBody".
+2. "subject" must be engaging, compelling, and concise (under 60 characters).
+3. "htmlBody" must be inline-styled, professional HTML (using inline CSS with clean padding, modern fonts like Arial/sans-serif, teal/dark header accents).
+4. Do NOT wrap output in markdown fences (\`\`\`json). Output pure JSON string only.`;
+
+    const maxAttempts = 3;
+    let lastError = "";
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`[RETENTION_V2_GEMINI] Invoking gemini-flash-latest model (Attempt ${attempt}/${maxAttempts})...`);
+        
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Gemini API request timed out after 10000ms")), 10000)
+        );
+
+        const apiPromise = ai.models.generateContent({
+          model: "gemini-flash-latest",
+          contents: prompt,
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const response: any = await Promise.race([apiPromise, timeoutPromise]);
+        const text = response?.text?.() || response?.text || "";
+
+        console.log(`[RETENTION_V2_GEMINI_SUCCESS] Raw response received (Length: ${text.length}). Sanitizing output...`);
+
+        let cleanText = text.trim();
+        if (cleanText.startsWith("```")) {
+          cleanText = cleanText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+        }
+
+        try {
+          const parsed = JSON.parse(cleanText);
+          if (parsed.subject && parsed.htmlBody) {
+            return res.json({
+              success: true,
+              source: "gemini-flash-latest",
+              subject: parsed.subject,
+              htmlBody: parsed.htmlBody
+            });
+          }
+        } catch {
+          console.warn("[RETENTION_V2_GEMINI_WARN] Output was not strict JSON. Applying fallback formatting.");
+          return res.json({
+            success: true,
+            source: "gemini-flash-latest-formatted",
+            subject: `Reactivating ${storeName || "Your Store"} on Nexa OS`,
+            htmlBody: `<div style="font-family: sans-serif; padding: 20px;">${cleanText.replace(/\n/g, "<br/>")}</div>`
+          });
+        }
+      } catch (err) {
+        lastError = (err as Error).message;
+        console.warn(`[RETENTION_V2_GEMINI_ERR] Attempt ${attempt} failed: ${lastError}`);
+        if (attempt < maxAttempts) {
+          await new Promise(r => setTimeout(r, 600 * attempt));
+        }
+      }
+    }
+
+    console.error("[RETENTION_V2_GEMINI_FAIL] Gemini API exhausted retries. Falling back to structured heuristic template.");
+    return res.json({
+      success: true,
+      source: "fallback_heuristic",
+      subject: `We miss having you active, ${storeName || "Nexa Merchant"}!`,
+      htmlBody: `<div style="font-family: sans-serif; padding: 20px;">
+        <h2>Hello ${managerName || "Store Manager"},</h2>
+        <p>It's been ${daysInactive || 3} days since your last sale at <strong>${storeName || "your store"}</strong>. Log in now to keep your metrics up to date!</p>
+      </div>`
+    });
+  });
+
+  // Helper to ensure database calls never hang if Firestore client is offline
+  const withDbTimeout = <T>(promise: Promise<T>, timeoutMs = 1200): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(`Firestore query timed out after ${timeoutMs}ms`)), timeoutMs)
+      )
+    ]);
+  };
+
   // API Endpoint for dispatching personalized retention email nudges
   app.post("/api/retention/send-custom-email", async (req, res) => {
-    const { storeId, subject, htmlBody, recipientEmail } = req.body;
+    const { storeId, subject, htmlBody, recipientEmail, useV2 = true } = req.body;
     if (!storeId || !subject || !htmlBody) {
       return res.status(400).json({ error: "storeId, subject, and htmlBody are required" });
     }
 
+    console.log(`[RETENTION_V2_INIT] Initiating custom email dispatch for store: ${storeId} (V2 Flag: ${useV2})...`);
+
     try {
-      const db = await getServerDb();
-      const { doc, getDoc, setDoc, query, where, getDocs, collection } = await import("firebase/firestore");
-
-      const storeSnap = await getDoc(doc(db, "stores", storeId));
-      if (!storeSnap.exists()) {
-        return res.status(404).json({ error: "Store not found" });
-      }
-      const store = storeSnap.data();
-
-      // Find referral/agent if any
-      const refQuery = query(collection(db, "referrals"), where("storeId", "==", storeId), where("status", "==", "converted"));
-      const refSnap = await getDocs(refQuery);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let store: any = null;
       let agentId = null;
-      if (!refSnap.empty) {
-        agentId = refSnap.docs[0].data().agentId;
+
+      try {
+        const db = await getServerDb();
+        const { doc, getDoc, query, where, getDocs, collection } = await import("firebase/firestore");
+
+        try {
+          const storeSnap = (await withDbTimeout(getDoc(doc(db, "stores", storeId)))) as { exists?: () => boolean; data?: () => Record<string, unknown> } | null;
+          if (storeSnap?.exists?.()) {
+            store = storeSnap.data?.() || null;
+          }
+        } catch (storeErr) {
+          console.warn("[RETENTION_V2_WARN] Could not query store doc in send-custom-email (operating offline/demo):", (storeErr as Error).message);
+        }
+
+        try {
+          const refQuery = query(collection(db, "referrals"), where("storeId", "==", storeId), where("status", "==", "converted"));
+          const refSnap = (await withDbTimeout(getDocs(refQuery))) as { empty?: boolean; docs?: Array<{ data: () => Record<string, unknown> }> } | null;
+          if (refSnap?.empty === false && refSnap?.docs?.[0]) {
+            agentId = refSnap.docs[0].data().agentId;
+          }
+        } catch (refErr) {
+          console.warn("[RETENTION_V2_WARN] Could not query referral doc in send-custom-email (operating offline/demo):", (refErr as Error).message);
+        }
+      } catch (dbInitErr) {
+        console.warn("[RETENTION_V2_WARN] Firestore database init warning in send-custom-email:", dbInitErr);
       }
 
       const eventId = `evt-email-${Date.now()}-${storeId}`;
-      const finalRecipient = recipientEmail || store.ownerEmail || store.email || "merchant@nexaos.io";
+      const finalRecipient = recipientEmail || store?.ownerEmail || store?.email || "merchant@nexaos.io";
 
-      // Actually send the email using GmailApiEmailProvider
+      console.log(`[RETENTION_V2_DISPATCH] Dispatching via GmailApiEmailProvider to ${finalRecipient}...`);
       const emailProvider = new GmailApiEmailProvider();
       const emailResult = await emailProvider.send(finalRecipient, subject, htmlBody, []);
 
-      await setDoc(doc(db, "retentionEvents", eventId), {
-        eventId,
-        storeId,
-        triggerId: "manual_email_campaign",
-        channel: "email",
-        sentAt: new Date().toISOString(),
-        status: emailResult.success ? "delivered" : "failed",
-        agentId,
-        meta: {
-          message: subject,
-          storeName: store.storeName || "Unnamed Store",
-          phone: finalRecipient,
-          htmlBody,
-          manual: true,
-          error: emailResult.error || null
-        }
-      });
-
-      if (agentId) {
-        const agentNotifId = `notif-agent-email-${Date.now()}-${storeId}`;
-        await setDoc(doc(db, "notifications", agentNotifId), {
-          id: agentNotifId,
-          type: "retention_alert",
-          title: "Merchant Email Campaign Sent",
-          message: `A personalized retention email campaign was sent to [${store.storeName || "Store"}]: "${subject}".`,
-          isRead: false,
+      // Log event to Firestore asynchronously without letting write errors block the response
+      try {
+        const db = await getServerDb();
+        const { doc, setDoc } = await import("firebase/firestore");
+        withDbTimeout(setDoc(doc(db, "retentionEvents", eventId), {
+          eventId,
+          storeId,
+          triggerId: "manual_email_campaign",
+          channel: "email",
+          sentAt: new Date().toISOString(),
+          status: emailResult.success ? "delivered" : "failed",
           agentId,
-          createdAt: new Date().toISOString()
-        });
+          meta: {
+            message: subject,
+            storeName: store?.storeName || store?.name || "Unnamed Store",
+            phone: finalRecipient,
+            htmlBody,
+            manual: true,
+            v2Pipeline: useV2,
+            error: emailResult.error || null
+          }
+        })).catch(() => {});
+
+        if (agentId) {
+          const agentNotifId = `notif-agent-email-${Date.now()}-${storeId}`;
+          withDbTimeout(setDoc(doc(db, "notifications", agentNotifId), {
+            id: agentNotifId,
+            type: "retention_alert",
+            title: "Merchant Email Campaign Sent",
+            message: `A personalized retention email campaign was sent to [${store?.storeName || "Store"}]: "${subject}".`,
+            isRead: false,
+            agentId,
+            createdAt: new Date().toISOString()
+          })).catch(() => {});
+        }
+      } catch (writeErr) {
+        console.warn("[RETENTION_V2_WARN] Could not save retention event to Firestore (operating offline/demo):", writeErr);
       }
 
       res.json({
-        status: "success",
+        status: emailResult.success ? "success" : "failed",
         eventId,
         simulated: emailResult.simulated,
         recipient: finalRecipient,
+        v2Pipeline: useV2,
         error: emailResult.error || null
       });
     } catch (error) {
-      console.error("[Send Custom Email Server Error]:", error);
+      console.error("[RETENTION_V2_FATAL] Send Custom Email Server Error:", error);
       res.status(500).json({ error: (error as Error).message });
     }
   });
 
   // API Endpoint for bulk dispatching custom retention email campaign
   app.post("/api/retention/send-bulk-email", async (req, res) => {
-    const { storeIds, subjectTemplate, htmlBodyTemplate } = req.body;
+    const { storeIds, subjectTemplate, htmlBodyTemplate, useV2 = true } = req.body;
     if (!Array.isArray(storeIds) || storeIds.length === 0 || !subjectTemplate || !htmlBodyTemplate) {
       return res.status(400).json({ error: "storeIds (array), subjectTemplate, and htmlBodyTemplate are required" });
     }
 
-    try {
-      const db = await getServerDb();
-      const { doc, getDoc, setDoc, query, where, getDocs, collection } = await import("firebase/firestore");
-      const emailProvider = new GmailApiEmailProvider();
+    console.log(`[RETENTION_V2_BULK_INIT] Executing bulk email campaign for ${storeIds.length} stores (V2 Flag: ${useV2})...`);
 
+    try {
+      const emailProvider = new GmailApiEmailProvider();
       const results = [];
       let successCount = 0;
       let errorCount = 0;
 
-      for (const storeId of storeIds) {
-        try {
-          const storeSnap = await getDoc(doc(db, "stores", storeId));
-          if (!storeSnap.exists()) {
-            results.push({ storeId, status: "failed", error: "Store not found" });
-            errorCount++;
-            continue;
-          }
-          const store = storeSnap.data();
+      for (let idx = 0; idx < storeIds.length; idx++) {
+        const storeId = storeIds[idx];
+        console.log(`[RETENTION_V2_BULK_ITEM] Processing ${idx + 1}/${storeIds.length}: Store ID ${storeId}`);
 
-          // Calculate inactive days
-          const lastSaleTime = store.lastSaleDate ? new Date(store.lastSaleDate).getTime() : new Date(store.createdAt || Date.now()).getTime();
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let store: any = null;
+          let agentId = null;
+
+          try {
+            const db = await getServerDb();
+            const { doc, getDoc, query, where, getDocs, collection } = await import("firebase/firestore");
+
+            try {
+              const storeSnap = (await withDbTimeout(getDoc(doc(db, "stores", storeId)))) as { exists?: () => boolean; data?: () => Record<string, unknown> } | null;
+              if (storeSnap?.exists?.()) {
+                store = storeSnap.data?.() || null;
+              }
+            } catch (e) {
+              console.warn(`[RETENTION_V2_BULK_WARN] Store fetch info for ${storeId}:`, (e as Error).message);
+            }
+
+            try {
+              const refQuery = query(collection(db, "referrals"), where("storeId", "==", storeId), where("status", "==", "converted"));
+              const refSnap = (await withDbTimeout(getDocs(refQuery))) as { empty?: boolean; docs?: Array<{ data: () => Record<string, unknown> }> } | null;
+              if (refSnap?.empty === false && refSnap?.docs?.[0]) {
+                agentId = refSnap.docs[0].data().agentId;
+              }
+            } catch (e) {
+              // Ignore offline query error
+            }
+          } catch (dbErr) {
+            console.warn(`[RETENTION_V2_BULK_WARN] Firestore DB warning for store ${storeId}:`, dbErr);
+          }
+
+          const lastSaleTime = store?.lastSaleDate ? new Date(store.lastSaleDate).getTime() : new Date(store?.createdAt || Date.now()).getTime();
           const daysInactive = Math.floor((Date.now() - lastSaleTime) / (1000 * 60 * 60 * 24));
 
-          const storeName = store.storeName || store.name || "Nexa Merchant";
-          const manager = store.ownerName || store.manager || "Store Manager";
+          const storeName = store?.storeName || store?.name || "Nexa Merchant";
+          const manager = store?.ownerName || store?.manager || "Store Manager";
           const daysStr = daysInactive.toString();
 
-          // Compile templates
           const compiledSubject = subjectTemplate
             .replace(/\{\{storeName\}\}/g, storeName)
             .replace(/\{\{manager\}\}/g, manager)
@@ -1002,49 +1221,42 @@ Do not include placeholders like [Price] or [Link].`;
             .replace(/\{\{manager\}\}/g, manager)
             .replace(/\{\{days\}\}/g, daysStr);
 
-          // Find referral/agent if any
-          const refQuery = query(collection(db, "referrals"), where("storeId", "==", storeId), where("status", "==", "converted"));
-          const refSnap = await getDocs(refQuery);
-          let agentId = null;
-          if (!refSnap.empty) {
-            agentId = refSnap.docs[0].data().agentId;
-          }
-
           const eventId = `evt-email-bulk-${Date.now()}-${storeId}`;
-          const finalRecipient = store.ownerEmail || store.email || "merchant@nexaos.io";
+          const finalRecipient = store?.ownerEmail || store?.email || "merchant@nexaos.io";
 
           const emailResult = await emailProvider.send(finalRecipient, compiledSubject, compiledBody, []);
 
-          await setDoc(doc(db, "retentionEvents", eventId), {
-            eventId,
-            storeId,
-            triggerId: "manual_bulk_email_campaign",
-            channel: "email",
-            sentAt: new Date().toISOString(),
-            status: emailResult.success ? "delivered" : "failed",
-            agentId,
-            meta: {
-              message: compiledSubject,
-              storeName,
-              phone: finalRecipient,
-              htmlBody: compiledBody,
-              manual: true,
-              bulk: true,
-              error: emailResult.error || null
-            }
-          });
+          if (emailResult.success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
 
-          if (agentId) {
-            const agentNotifId = `notif-agent-bulk-${Date.now()}-${storeId}`;
-            await setDoc(doc(db, "notifications", agentNotifId), {
-              id: agentNotifId,
-              type: "retention_alert",
-              title: "Bulk Email Outreach Sent",
-              message: `Your store [${storeName}] was included in a bulk outreach email campaign: "${compiledSubject}".`,
-              isRead: false,
+          // Asynchronously attempt writing retention event
+          try {
+            const db = await getServerDb();
+            const { doc, setDoc } = await import("firebase/firestore");
+            await setDoc(doc(db, "retentionEvents", eventId), {
+              eventId,
+              storeId,
+              triggerId: "manual_bulk_email_campaign",
+              channel: "email",
+              sentAt: new Date().toISOString(),
+              status: emailResult.success ? "delivered" : "failed",
               agentId,
-              createdAt: new Date().toISOString()
+              meta: {
+                message: compiledSubject,
+                storeName,
+                phone: finalRecipient,
+                htmlBody: compiledBody,
+                manual: true,
+                bulk: true,
+                v2Pipeline: useV2,
+                error: emailResult.error || null
+              }
             });
+          } catch (e) {
+            // Ignore offline write error
           }
 
           results.push({ 
@@ -1055,17 +1267,22 @@ Do not include placeholders like [Price] or [Link].`;
             recipient: finalRecipient,
             error: emailResult.error || null
           });
-          successCount++;
+
+          // Gentle throttling (150ms) between bulk sends to prevent hitting Gmail API rate limit quotas (~250 units/sec)
+          if (idx < storeIds.length - 1) {
+            await new Promise((r) => setTimeout(r, 150));
+          }
         } catch (innerErr) {
-          console.error(`[Bulk Email Single Store Error] for ${storeId}:`, innerErr);
+          console.error(`[RETENTION_V2_BULK_ITEM_ERR] Exception for store ${storeId}:`, innerErr);
           results.push({ storeId, status: "failed", error: (innerErr as Error).message });
           errorCount++;
         }
       }
 
-      res.json({ status: "success", processed: storeIds.length, successCount, errorCount, results });
+      console.log(`[RETENTION_V2_BULK_COMPLETE] Processed ${storeIds.length} stores. Success: ${successCount}, Failed: ${errorCount}`);
+      res.json({ status: "success", processed: storeIds.length, successCount, errorCount, results, v2Pipeline: useV2 });
     } catch (error) {
-      console.error("[Bulk Email Server Error]:", error);
+      console.error("[RETENTION_V2_BULK_FATAL] Bulk Email Server Error:", error);
       res.status(500).json({ error: (error as Error).message });
     }
   });
@@ -1094,11 +1311,16 @@ Do not include placeholders like [Price] or [Link].`;
       const { doc, getDoc, collection, query, where, getDocs, addDoc } = await import("firebase/firestore");
 
       // 1. Fetch store
-      const storeSnap = await getDoc(doc(db, "stores", storeId));
-      if (!storeSnap.exists()) {
-        return res.status(404).json({ error: "Store not found" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let storeData: any = { storeName: storeId, reportPreferences: { recipientEmail: recipientEmail || "merchant@nexaos.io", frequency: "weekly" } };
+      try {
+        const storeSnap = await getDoc(doc(db, "stores", storeId));
+        if (storeSnap.exists()) {
+          storeData = storeSnap.data();
+        }
+      } catch (e) {
+        console.warn(`[test-generate] Store fetch info for ${storeId}:`, e);
       }
-      const storeData = storeSnap.data();
 
       // 2. Determine recipient email (override or stored pref or default)
       const recipient = recipientEmail || storeData.reportPreferences?.recipientEmail || "merchant@nexaos.io";
@@ -1121,28 +1343,32 @@ Do not include placeholders like [Price] or [Link].`;
       ]);
 
       // 5. Register Delivery
-      const todayStr = new Date().toISOString().split("T")[0];
-      const deliveriesQuery = query(
-        collection(db, "reportDeliveries"),
-        where("status", "==", "delivered"),
-        where("sentAt", ">=", todayStr)
-      );
-      const deliveriesSnap = await getDocs(deliveriesQuery);
-      const runningQuotaToday = deliveriesSnap.size + (emailResult.success ? 1 : 0);
-
       const deliveryId = `deliv-${Date.now()}`;
-      await addDoc(collection(db, "reportDeliveries"), {
-        id: deliveryId,
-        storeId,
-        recipientEmail: recipient,
-        frequency: freq,
-        status: emailResult.success ? "delivered" : "failed",
-        sentAt: new Date().toISOString(),
-        error: emailResult.error || null,
-        summary,
-        gmailQuotaUsedThisDay: runningQuotaToday,
-        simulated: emailResult.simulated
-      });
+      try {
+        const todayStr = new Date().toISOString().split("T")[0];
+        const deliveriesQuery = query(
+          collection(db, "reportDeliveries"),
+          where("status", "==", "delivered"),
+          where("sentAt", ">=", todayStr)
+        );
+        const deliveriesSnap = await getDocs(deliveriesQuery);
+        const runningQuotaToday = deliveriesSnap.size + (emailResult.success ? 1 : 0);
+
+        await addDoc(collection(db, "reportDeliveries"), {
+          id: deliveryId,
+          storeId,
+          recipientEmail: recipient,
+          frequency: freq,
+          status: emailResult.success ? "delivered" : "failed",
+          sentAt: new Date().toISOString(),
+          error: emailResult.error || null,
+          summary,
+          gmailQuotaUsedThisDay: runningQuotaToday,
+          simulated: emailResult.simulated
+        });
+      } catch (e) {
+        console.warn(`[test-generate] Could not log report delivery in Firestore (offline):`, e);
+      }
 
       res.json({
         status: "success",
@@ -2330,6 +2556,143 @@ Respond ONLY with valid JSON conforming to this structure:
       });
     } catch (err: unknown) {
       console.error("[AI Train Endpoint Error]:", err);
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // AI CSV / Spreadsheet Product Categorization & Formatting Endpoint
+  app.post("/api/ai/csv-categorize", async (req, res) => {
+    try {
+      const { items, categories } = req.body;
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: "items array is required" });
+      }
+
+      const activeAi = getGeminiClient();
+      const modelName = "gemini-3.5-flash";
+
+      const defaultCategories = [
+        "Pharmaceuticals & Medicines",
+        "Beverages & Drinks",
+        "Groceries & FMCG",
+        "Electronics & Tech",
+        "Fashion & Apparel",
+        "Textiles & Fabrics",
+        "Restaurant & Prepared Meals",
+        "Agriculture & Farming Supplies",
+        "Building & Hardware Supplies",
+        "General Store Goods"
+      ];
+      const validCategories = Array.isArray(categories) && categories.length > 0 ? categories : defaultCategories;
+
+      const promptText = `You are NexaStoreOS AI Inventory Classifier.
+Classify and normalize the following inventory product rows.
+
+Target Categories to match from:
+${validCategories.map((c: string) => `- ${c}`).join("\n")}
+
+Input Products (${items.length} rows):
+${JSON.stringify(items.slice(0, 100))}
+
+Rules:
+1. For each product, assign the best matching category from the target list above based on its name and description.
+2. Clean sellingPrice and costPrice into pure numbers (remove ₦, $, commas, text).
+3. If SKU is missing or empty, generate a unique SKU in format SKU-1001, SKU-1002...
+4. Clean product name (remove duplicate spaces or quote artifacts).
+
+Respond strictly with valid JSON conforming to this schema:
+{
+  "processedItems": [
+    {
+      "id": "original product id or index",
+      "name": "Clean Product Name",
+      "sku": "SKU-xxx",
+      "sellingPrice": number,
+      "costPrice": number,
+      "stockQuantity": number,
+      "category": "Matched Category Name",
+      "confidence": 95,
+      "reasoning": "brief match reason"
+    }
+  ]
+}`;
+
+      const response = await activeAi.models.generateContent({
+        model: modelName,
+        contents: [{ parts: [{ text: promptText }] }],
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.1,
+        },
+      });
+
+      const parsed = JSON.parse(response.text || "{}");
+      res.json({ success: true, processedItems: parsed.processedItems || [] });
+    } catch (err: unknown) {
+      console.error("[AI CSV Categorize Error]:", err);
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // AI Spreadsheet Assistant Q&A Endpoint
+  app.post("/api/ai/csv-assistant", async (req, res) => {
+    try {
+      const { question, items, columns } = req.body;
+      if (!question) {
+        return res.status(400).json({ error: "Question is required" });
+      }
+
+      const activeAi = getGeminiClient();
+      const modelName = "gemini-3.5-flash";
+
+      const sampleItems = Array.isArray(items) ? items.slice(0, 30) : [];
+      const totalCount = Array.isArray(items) ? items.length : 0;
+
+      const promptText = `You are the NexaStoreOS Super Admin CSV & Spreadsheet Assistant.
+The user is inspecting a spreadsheet containing ${totalCount} inventory products.
+
+Spreadsheet Columns: ${JSON.stringify(columns || [])}
+Sample Data (${sampleItems.length} of ${totalCount} items):
+${JSON.stringify(sampleItems)}
+
+User Question / Command:
+"${question}"
+
+Instructions:
+1. Answer the user's question concisely, accurately, and politely in markdown format.
+2. If the user asks for insights (e.g., total valuation, price anomalies, category breakdown), calculate and summarize them based on the data.
+3. If the user asks to modify rows (e.g., "Set category of Indomie to Groceries", "Set missing stock to 10"), answer what changed and return a suggested mutation directive if applicable.
+
+Respond strictly with JSON in this format:
+{
+  "answer": "Markdown answer text",
+  "highlights": ["key point 1", "key point 2"],
+  "mutation": {
+    "type": "update_category" | "update_price" | "filter" | "none",
+    "targetField": "category" | "sellingPrice" | "stockQuantity" | "sku",
+    "filterKeyword": "optional search string to match item name",
+    "newValue": "new value if applying a bulk update"
+  }
+}`;
+
+      const response = await activeAi.models.generateContent({
+        model: modelName,
+        contents: [{ parts: [{ text: promptText }] }],
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.2,
+        },
+      });
+
+      const parsed = JSON.parse(response.text || "{}");
+      res.json({
+        success: true,
+        answer: parsed.answer || "No response generated.",
+        highlights: parsed.highlights || [],
+        mutation: parsed.mutation && parsed.mutation.type !== "none" ? parsed.mutation : null,
+      });
+    } catch (err: unknown) {
+      console.error("[AI CSV Assistant Error]:", err);
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
   });

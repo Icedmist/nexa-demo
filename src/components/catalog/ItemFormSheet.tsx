@@ -833,6 +833,74 @@ export function ItemFormSheet({
               </div>
             </div>
 
+            {/* STOCK & UNIT COUNT */}
+            <div className="p-4 bg-muted/20 border border-blue-500/20 rounded-xl space-y-3 shadow-none">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold text-xs uppercase tracking-wider">
+                  <Package className="w-3.5 h-3.5" /> Stock & Unit Count
+                </div>
+                <span className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">inventory</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground leading-none">Track portion availability and serving unit measurements</p>
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className={labelCls}>Stock Count / Quantity *</label>
+                  <input 
+                    type="number" 
+                    {...register("currentStock")} 
+                    className={cn(inputCls, "font-mono font-bold text-xs")} 
+                    placeholder="50" 
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Unit of Measurement</label>
+                  <Select 
+                    value={watch("unit") || "plate"} 
+                    onValueChange={(val) => {
+                      setValue("unit", val);
+                      setValue("unitType", "count");
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="plate" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="plate">Plate</SelectItem>
+                      <SelectItem value="portion">Portion</SelectItem>
+                      <SelectItem value="bowl">Bowl</SelectItem>
+                      <SelectItem value="pack">Pack</SelectItem>
+                      <SelectItem value="pcs">Pcs / Pieces</SelectItem>
+                      <SelectItem value="serving">Serving</SelectItem>
+                      <SelectItem value="order">Order</SelectItem>
+                      <SelectItem value="cup">Cup</SelectItem>
+                      <SelectItem value="bottle">Bottle</SelectItem>
+                      <SelectItem value="litre">Litre</SelectItem>
+                      <SelectItem value="kg">Kg</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className={labelCls}>Cost / Prep Cost (₦)</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    {...register("costPrice")} 
+                    className={cn(inputCls, "font-mono text-xs")} 
+                    placeholder="2000" 
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Low Stock Alert Pt</label>
+                  <input 
+                    type="number" 
+                    {...register("reorderPoint")} 
+                    className={cn(inputCls, "font-mono text-xs")} 
+                    placeholder="5" 
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* PORTIONS */}
             <div className="p-4 bg-muted/20 border border-[#FFA254]/30 rounded-xl space-y-2 shadow-none">
               <div className="flex items-center justify-between"><span className="text-xs font-bold uppercase text-foreground/90 flex gap-1.5 items-center"><Layers className="w-3.5 h-3.5 text-[#FFA254]" /> Portion Sizes</span><span className="bg-[#fff3e0] text-[#FFA254] text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider scale-95 origin-right">required</span></div>

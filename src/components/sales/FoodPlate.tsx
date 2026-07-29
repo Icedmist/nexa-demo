@@ -28,7 +28,7 @@ export function FoodPlate({ items, className }: FoodPlateProps) {
           <AnimatePresence>
             {items.map((item, index) => (
               <motion.div
-                key={item.id}
+                key={`${item.id}-${index}`}
                 initial={{ scale: 0, opacity: 0, x: -100, y: -100 }}
                 animate={{ 
                   scale: 1, 

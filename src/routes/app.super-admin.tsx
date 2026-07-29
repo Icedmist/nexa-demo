@@ -13,6 +13,7 @@ import {
   Activity,
   Database,
   FileDown,
+  FileSpreadsheet,
   Bot,
   CreditCard,
   QrCode,
@@ -338,6 +339,7 @@ export function SuperAdminLayout() {
   const tabs = [
     { label: "Dashboard", href: "/app/super-admin", icon: Activity },
     { label: "Live Geo Map", href: "/app/super-admin/map", icon: MapPin },
+    { label: "CSV & Excel AI Studio", href: "/app/super-admin/csv-processor", icon: FileSpreadsheet },
     { label: "Store Branches", href: "/app/super-admin/stores", icon: Building2 },
     { label: "Industry Categories", href: "/app/super-admin/categories", icon: Package },
     { label: "User Administration", href: "/app/super-admin/users", icon: Users },

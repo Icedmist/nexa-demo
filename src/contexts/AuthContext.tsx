@@ -498,20 +498,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const markOnboardingCompleted = async () => {
-    if (!user) {
-      setProfile((prev) => prev ? { ...prev, onboardingCompleted: true } : prev);
-      return;
-    }
-    try {
-      const profileRef = doc(db, "users", user.uid);
-      await setDoc(profileRef, { 
-        onboardingCompleted: true, 
-        updatedAt: new Date().toISOString() 
-      }, { merge: true });
-    } catch (e) {
-      console.warn("Failed to set onboardingCompleted in Firestore:", e);
-    } finally {
-      setProfile((prev) => prev ? { ...prev, onboardingCompleted: true } : prev);
+    // 1. Instantly update local profile state so UI overlays close immediately
+    setProfile((prev) => prev ? { ...prev, onboardingCompleted: true } : prev);
+
+    // 2. Instantly update local cache
+    if (user?.uid) {
       const cachedStr = localStorage.getItem("nexa_profile_" + user.uid);
       if (cachedStr) {
         try {
@@ -522,6 +513,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // ignore
         }
       }
+    }
+
+    if (!user) return;
+
+    // 3. Sync to Firestore with a 1000ms safety timeout so slow networks never block the app
+    try {
+      const profileRef = doc(db, "users", user.uid);
+      const writePromise = setDoc(profileRef, { 
+        onboardingCompleted: true, 
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+      const timeoutPromise = new Promise((res) => setTimeout(res, 1000));
+      await Promise.race([writePromise, timeoutPromise]);
+    } catch (e) {
+      console.warn("Failed to set onboardingCompleted in Firestore:", e);
     }
   };
 

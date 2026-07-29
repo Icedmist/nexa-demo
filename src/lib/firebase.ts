@@ -84,49 +84,66 @@ function updateConnectivity(offline: boolean) {
   }
 }
 
+export function setFirebaseOffline(offline: boolean) {
+  if (typeof window !== "undefined") {
+    if (offline) {
+      localStorage.setItem("nexa_force_offline", "true");
+      localStorage.removeItem("nexa_force_online");
+    } else {
+      localStorage.removeItem("nexa_force_offline");
+      localStorage.setItem("nexa_force_online", "true");
+    }
+    window.dispatchEvent(new Event("nexa-offline-toggle"));
+  }
+  updateConnectivity(offline);
+}
+
+export async function retryFirebaseConnection(): Promise<boolean> {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("nexa_force_offline");
+    localStorage.setItem("nexa_force_online", "true");
+    window.dispatchEvent(new Event("nexa-offline-toggle"));
+  }
+  updateConnectivity(false);
+  await testConnection(true);
+  return !isFirebaseOffline;
+}
+
 // Global error handler for connection test
-async function testConnection(force = false) {
+export async function testConnection(force = false) {
+  if (typeof window !== "undefined" && localStorage.getItem("nexa_force_offline") === "true" && !force) {
+    updateConnectivity(true);
+    return;
+  }
+  if (typeof window !== "undefined" && localStorage.getItem("nexa_force_online") === "true") {
+    updateConnectivity(false);
+    return;
+  }
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     updateConnectivity(true);
     return;
   }
-  if (isFirebaseOffline && !force) {
+
+  // If browser navigator reports online, default to Online Mode so server APIs and email services work
+  if (typeof navigator !== 'undefined' && navigator.onLine) {
+    updateConnectivity(false);
     return;
   }
+
   try {
-    // Try to get a document directly from the server. 
-    // This will fail fast if the config or network is broken.
     await getDocFromServer(doc(db, '_system_', 'connectivity_test'));
     console.log("Firebase connected successfully.");
     updateConnectivity(false);
   } catch (error) {
-    if (error instanceof Error) {
-      const msg = error.message.toLowerCase();
-      if (
-        msg.includes('offline') || 
-        msg.includes('network-request-failed') || 
-        msg.includes('unavailable') || 
-        msg.includes('could not reach') ||
-        msg.includes('not_found') ||
-        msg.includes('not-found') ||
-        msg.includes('code: 5') ||
-        msg.includes('listen') ||
-        (error.name === 'FirebaseError' && msg.includes('failed'))
-      ) {
-        console.warn("Nexa OS Info: Cloud Firestore database is unreachable or unprovisioned in this environment. Seamlessly operating in local-first demo fallback mode.");
-        updateConnectivity(true);
-      } else if (msg.includes('permission-denied') || msg.includes('insufficient permissions')) {
-        console.log("Firebase connection verified (permission boundaries intact).");
-        updateConnectivity(false);
-      } else {
-        console.log("Firebase connection info:", error.message);
-        updateConnectivity(true);
-      }
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      updateConnectivity(false);
+    } else {
+      updateConnectivity(true);
     }
   }
 }
 
-// Run connection test in browser after a short delay to allow Auth state to initialize first
+// Run connection test in browser and auto-detect when online
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     testConnection(true);
@@ -137,7 +154,16 @@ if (typeof window !== 'undefined') {
 
   setTimeout(() => {
     testConnection(true);
-  }, 2500);
+  }, 2000);
+
+  // Background health check to auto-detect when connection becomes available
+  setInterval(() => {
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      if (localStorage.getItem("nexa_force_offline") !== "true") {
+        testConnection(true);
+      }
+    }
+  }, 15000);
 }
 
 export enum OperationType {
@@ -208,23 +234,43 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 export function useFirebaseOffline() {
   const [offline, setOffline] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("nexa_force_offline") === "true" || isFirebaseOffline;
+      if (localStorage.getItem("nexa_force_online") === "true") return false;
+      if (localStorage.getItem("nexa_force_offline") === "true") return true;
+      return isFirebaseOffline;
     }
     return isFirebaseOffline;
   });
 
   useEffect(() => {
     const checkState = () => {
-      const forced = typeof window !== "undefined" && localStorage.getItem("nexa_force_offline") === "true";
-      setOffline(forced || isFirebaseOffline);
+      if (typeof window !== "undefined") {
+        if (localStorage.getItem("nexa_force_online") === "true") {
+          setOffline(false);
+          return;
+        }
+        if (localStorage.getItem("nexa_force_offline") === "true") {
+          setOffline(true);
+          return;
+        }
+      }
+      setOffline(isFirebaseOffline);
     };
 
     window.addEventListener("storage", checkState);
     window.addEventListener("nexa-offline-toggle", checkState);
 
     const unsub = onConnectivityChange((offlineVal) => {
-      const forced = typeof window !== "undefined" && localStorage.getItem("nexa_force_offline") === "true";
-      setOffline(forced || offlineVal);
+      if (typeof window !== "undefined") {
+        if (localStorage.getItem("nexa_force_online") === "true") {
+          setOffline(false);
+          return;
+        }
+        if (localStorage.getItem("nexa_force_offline") === "true") {
+          setOffline(true);
+          return;
+        }
+      }
+      setOffline(offlineVal);
     });
 
     return () => {

@@ -592,11 +592,11 @@ export function SalesStepCheckout({
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-foreground">Order Summary</h3>
         <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
-          {items.map((ci) => {
+          {items.map((ci, index) => {
             const unitPrice = ci.calculatedUnitPrice ?? ci.item.sellingPrice;
             const unit = ci.selectedUnit || ci.item.unit;
             return (
-              <div key={`${ci.item.id}:${unit}`} className="flex justify-between items-start text-xs border-b border-border/30 last:border-0 pb-1.5 last:pb-0">
+              <div key={`${ci.item.id}:${unit}:${index}`} className="flex justify-between items-start text-xs border-b border-border/30 last:border-0 pb-1.5 last:pb-0">
                 <div className="text-muted-foreground mr-2 flex flex-col">
                   <span className="font-bold text-foreground">{ci.item.name} ({unit}) × {ci.quantity}</span>
                   {ci.configStr && (() => {

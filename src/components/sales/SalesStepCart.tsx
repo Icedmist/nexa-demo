@@ -177,7 +177,7 @@ export function SalesStepCart({
         </div>
       )}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-        {items.map((ci) => {
+        {items.map((ci, index) => {
           const unitPrice = ci.calculatedUnitPrice ?? ci.item.sellingPrice;
           const displayUnit = ci.selectedUnit || ci.item.unit;
           const uniqueKey = ci.configStr 
@@ -196,7 +196,7 @@ export function SalesStepCart({
           const isOverridden = priceOverrides?.has(uniqueKey);
 
           return (
-            <div key={uniqueKey} className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-sm">
+            <div key={`${uniqueKey}:${index}`} className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3 shadow-sm">
               {/* Top part: Image and Product Details / Price Overrides */}
               <div className="flex items-start gap-3 w-full">
                 <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted/50 border border-border/40">

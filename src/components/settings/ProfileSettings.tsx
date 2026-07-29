@@ -7,12 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { User, Mail, Shield, Calendar, Lock, KeyRound, Save, Zap, Sparkles, Layers, Eye, EyeOff } from "lucide-react";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import { useCurrency } from "@/hooks/useCurrency";
 import { PaymentDialog } from "./PaymentDialog";
 import { toast } from "sonner";
 
 export function ProfileSettings() {
   const { profile, updateProfileName, updateProfileDescription, sendPasswordReset, updateUserPassword } = useAuth();
   const { settings, updateSettings } = useSystemSettings();
+  const { formatCurrency, currencySymbol } = useCurrency();
   
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [targetTier, setTargetTier] = useState<"starter" | "professional" | "enterprise">("professional");
@@ -338,7 +340,7 @@ export function ProfileSettings() {
                 <div>
                   <h5 className="font-bold text-xs flex items-center gap-1.5"><Layers className="h-4 w-4 text-slate-500" /> Starter Plan</h5>
                   <p className="text-[10px] text-muted-foreground mt-1">Core operations features enabled for all stores.</p>
-                  <p className="text-xs font-extrabold mt-2 text-foreground">Free / $0</p>
+                  <p className="text-xs font-extrabold mt-2 text-foreground">Free / {currencySymbol}0</p>
                 </div>
                 {(settings?.subscriptionTier || "starter") === "starter" ? (
                   <Button disabled size="sm" className="w-full text-xs font-semibold" variant="secondary">Currently Active</Button>
@@ -367,7 +369,7 @@ export function ProfileSettings() {
                 <div>
                   <h5 className="font-bold text-xs flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-purple-500" /> Professional Plan</h5>
                   <p className="text-[10px] text-muted-foreground mt-1">Scale operations with intelligent optimization models.</p>
-                  <p className="text-xs font-extrabold mt-2 text-foreground">₦150,000 / $150</p>
+                  <p className="text-xs font-extrabold mt-2 text-foreground">{formatCurrency(6500)} / mo</p>
                 </div>
                 {(settings?.subscriptionTier || "starter") === "professional" ? (
                   <Button disabled size="sm" className="w-full text-xs font-semibold" variant="secondary">Currently Active</Button>
@@ -391,7 +393,7 @@ export function ProfileSettings() {
                 <div>
                   <h5 className="font-bold text-xs flex items-center gap-1.5"><Zap className="h-4 w-4 text-blue-500" /> Enterprise Plan</h5>
                   <p className="text-[10px] text-muted-foreground mt-1">Automate and syndicate multi-channel pipelines seamlessly.</p>
-                  <p className="text-xs font-extrabold mt-2 text-foreground">₦450,000 / $450</p>
+                  <p className="text-xs font-extrabold mt-2 text-foreground">{formatCurrency(45000)} / mo</p>
                 </div>
                 {(settings?.subscriptionTier || "starter") === "enterprise" ? (
                   <Button disabled size="sm" className="w-full text-xs font-semibold" variant="secondary">Currently Active</Button>

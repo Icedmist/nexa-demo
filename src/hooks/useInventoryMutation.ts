@@ -18,6 +18,15 @@ import type { CreditTransaction } from "@/types/finance";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "./useRole";
 
+const withTimeout = <T>(promise: Promise<T>, timeoutMs = 2000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("Operation network timeout")), timeoutMs)
+    ),
+  ]);
+};
+
 export function useInventoryMutation() {
   const { isDemo, demoStore, bumpVersion } = useDemo();
   const { profile } = useAuth();
@@ -32,14 +41,22 @@ export function useInventoryMutation() {
     }
     try {
       const { id, ...data } = item;
-      await setDoc(doc(db, "items", id), {
-        ...data,
-        storeId: activeStoreId,
-        updatedAt: serverTimestamp(),
-        createdAt: item.createdAt || serverTimestamp()
-      });
+      await withTimeout(
+        setDoc(doc(db, "items", id), {
+          ...data,
+          storeId: activeStoreId,
+          updatedAt: serverTimestamp(),
+          createdAt: item.createdAt || serverTimestamp(),
+        }),
+        2000
+      );
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, "items");
+      if (demoStore) {
+        demoStore.createItem(item);
+        bumpVersion();
+      } else {
+        handleFirestoreError(err, OperationType.CREATE, "items");
+      }
     }
   };
 
@@ -50,12 +67,20 @@ export function useInventoryMutation() {
       return;
     }
     try {
-      await updateDoc(doc(db, "items", id), {
-        ...updates,
-        updatedAt: serverTimestamp()
-      });
+      await withTimeout(
+        updateDoc(doc(db, "items", id), {
+          ...updates,
+          updatedAt: serverTimestamp(),
+        }),
+        2000
+      );
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `items/${id}`);
+      if (demoStore) {
+        demoStore.updateItem(id, updates);
+        bumpVersion();
+      } else {
+        handleFirestoreError(err, OperationType.UPDATE, `items/${id}`);
+      }
     }
   };
 
@@ -83,7 +108,7 @@ export function useInventoryMutation() {
           message: `Processed successful transaction of ₦${sale.totalNgn.toLocaleString()} to ${sale.customerName}.`,
           isRead: false,
           link: "/app/sales-history",
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         });
       }
       bumpVersion();
@@ -99,8 +124,8 @@ export function useInventoryMutation() {
         message: `Processed successful transaction of ₦${sale.totalNgn.toLocaleString()} to ${sale.customerName || "Customer"}.`,
         isRead: false,
         link: "/app/sales-history",
-        createdAt: new Date().toISOString()
-      }).catch(e => console.error("Failed to add sales notification", e));
+        createdAt: new Date().toISOString(),
+      }).catch((e) => console.error("Failed to add sales notification", e));
     }
 
     const isOffline = typeof window !== "undefined" && (localStorage.getItem("nexa_force_offline") === "true" || isFirebaseOffline);
@@ -109,48 +134,59 @@ export function useInventoryMutation() {
       try {
         const saleRef = doc(db, "sales", sale.id);
         const cleanSale = JSON.parse(JSON.stringify(sale));
-        await setDoc(saleRef, {
-          ...cleanSale,
-          storeId: activeStoreId,
-          createdAt: serverTimestamp()
-        });
+        await withTimeout(
+          setDoc(saleRef, {
+            ...cleanSale,
+            storeId: activeStoreId,
+            createdAt: serverTimestamp(),
+          }),
+          1500
+        );
 
-        await Promise.all(
-          sale.items.map(async (lineItem, index) => {
-            const itemRef = doc(db, "items", lineItem.itemId);
-            const reduction = lineItem.quantity * (lineItem.multiplier || 1);
-            await updateDoc(itemRef, {
-              currentStock: increment(-reduction),
-              updatedAt: serverTimestamp()
-            });
+        await withTimeout(
+          Promise.all(
+            sale.items.map(async (lineItem, index) => {
+              const itemRef = doc(db, "items", lineItem.itemId);
+              const reduction = lineItem.quantity * (lineItem.multiplier || 1);
+              await updateDoc(itemRef, {
+                currentStock: increment(-reduction),
+                updatedAt: serverTimestamp(),
+              });
 
-            const movementId = `mvt-${sale.id}-${lineItem.itemId}-${index}`;
-            await setDoc(doc(db, "movements", movementId), {
-              itemId: lineItem.itemId,
-              type: "shipped",
-              quantity: reduction,
-              fromLocationId: null,
-              toLocationId: null,
-              reference: sale.id,
-              notes: `Sold via ${sale.source === "social" ? "Storefront" : "POS"} (Offline)`,
-              performedBy: profile?.name || "System",
-              storeId: activeStoreId || null,
-              createdAt: serverTimestamp()
-            });
-          })
+              const movementId = `mvt-${sale.id}-${lineItem.itemId}-${index}`;
+              await setDoc(doc(db, "movements", movementId), {
+                itemId: lineItem.itemId,
+                type: "shipped",
+                quantity: reduction,
+                fromLocationId: null,
+                toLocationId: null,
+                reference: sale.id,
+                notes: `Sold via ${sale.source === "social" ? "Storefront" : "POS"} (Offline)`,
+                performedBy: profile?.name || "System",
+                storeId: activeStoreId || null,
+                createdAt: serverTimestamp(),
+              });
+            })
+          ),
+          1500
         );
       } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, "sales/offline-transaction");
+        if (demoStore) {
+          demoStore.addSale(sale);
+          bumpVersion();
+        } else {
+          handleFirestoreError(err, OperationType.WRITE, "sales/offline-transaction");
+        }
       }
       return;
     }
 
-    // Try runTransaction with a 3.5s timeout; fall back to direct write if network stalls or takes long
+    // Try runTransaction with a 2.0s timeout; fall back to direct fast write or demoStore if network stalls
     try {
       const txnPromise = runTransaction(db, async (transaction) => {
         // 1. Pre-fetch all item stocks (READS)
         const itemSnaps = await Promise.all(
-          sale.items.map(lineItem => transaction.get(doc(db, "items", lineItem.itemId)))
+          sale.items.map((lineItem) => transaction.get(doc(db, "items", lineItem.itemId)))
         );
 
         // 2. Create sale record (WRITE)
@@ -159,7 +195,7 @@ export function useInventoryMutation() {
         transaction.set(saleRef, {
           ...cleanSale,
           storeId: activeStoreId,
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
         });
 
         // 3. Update stock for each item and log movement (WRITES)
@@ -170,10 +206,10 @@ export function useInventoryMutation() {
             const itemData = itemSnap.data();
             const currentStock = itemData.currentStock || 0;
             const reduction = lineItem.quantity * (lineItem.multiplier || 1);
-            
+
             transaction.update(itemRef, {
               currentStock: Math.max(0, currentStock - reduction),
-              updatedAt: serverTimestamp()
+              updatedAt: serverTimestamp(),
             });
 
             const movementId = `mvt-${sale.id}-${lineItem.itemId}-${index}`;
@@ -187,57 +223,71 @@ export function useInventoryMutation() {
               notes: `Sold via ${sale.source === "social" ? "Storefront" : "POS"}`,
               performedBy: profile?.name || "System",
               storeId: activeStoreId || null,
-              createdAt: serverTimestamp()
+              createdAt: serverTimestamp(),
             });
           }
         });
       });
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Transaction network timeout")), 3500)
-      );
-
       txnPromise.catch(() => {});
-      await Promise.race([txnPromise, timeoutPromise]);
+      await withTimeout(txnPromise, 2000);
       return;
     } catch (err) {
       console.warn("Transaction failed or timed out; proceeding with direct fast write:", err);
       try {
         const saleRef = doc(db, "sales", sale.id);
         const cleanSale = JSON.parse(JSON.stringify(sale));
-        await setDoc(saleRef, {
-          ...cleanSale,
-          storeId: activeStoreId,
-          createdAt: serverTimestamp()
-        });
+        await withTimeout(
+          setDoc(saleRef, {
+            ...cleanSale,
+            storeId: activeStoreId,
+            createdAt: serverTimestamp(),
+          }),
+          1500
+        );
 
-        await Promise.all(
-          sale.items.map(async (lineItem, index) => {
-            const itemRef = doc(db, "items", lineItem.itemId);
-            const reduction = lineItem.quantity * (lineItem.multiplier || 1);
-            await updateDoc(itemRef, {
-              currentStock: increment(-reduction),
-              updatedAt: serverTimestamp()
-            });
+        await withTimeout(
+          Promise.all(
+            sale.items.map(async (lineItem, index) => {
+              const itemRef = doc(db, "items", lineItem.itemId);
+              const reduction = lineItem.quantity * (lineItem.multiplier || 1);
+              await updateDoc(itemRef, {
+                currentStock: increment(-reduction),
+                updatedAt: serverTimestamp(),
+              });
 
-            const movementId = `mvt-${sale.id}-${lineItem.itemId}-${index}`;
-            await setDoc(doc(db, "movements", movementId), {
-              itemId: lineItem.itemId,
-              type: "shipped",
-              quantity: reduction,
-              fromLocationId: null,
-              toLocationId: null,
-              reference: sale.id,
-              notes: `Sold via ${sale.source === "social" ? "Storefront" : "POS"} (Fast Fallback)`,
-              performedBy: profile?.name || "System",
-              storeId: activeStoreId || null,
-              createdAt: serverTimestamp()
-            });
-          })
+              const movementId = `mvt-${sale.id}-${lineItem.itemId}-${index}`;
+              await setDoc(doc(db, "movements", movementId), {
+                itemId: lineItem.itemId,
+                type: "shipped",
+                quantity: reduction,
+                fromLocationId: null,
+                toLocationId: null,
+                reference: sale.id,
+                notes: `Sold via ${sale.source === "social" ? "Storefront" : "POS"} (Fast Fallback)`,
+                performedBy: profile?.name || "System",
+                storeId: activeStoreId || null,
+                createdAt: serverTimestamp(),
+              });
+            })
+          ),
+          1500
         );
         return;
       } catch (fallbackErr) {
-        handleFirestoreError(fallbackErr, OperationType.WRITE, "sales/transaction");
+        console.warn("Fallback write failed or timed out, caching sale locally:", fallbackErr);
+        if (demoStore) {
+          demoStore.addSale(sale);
+          bumpVersion();
+        } else {
+          try {
+            const pending = JSON.parse(localStorage.getItem("nexa_pending_sales") || "[]");
+            pending.push(sale);
+            localStorage.setItem("nexa_pending_sales", JSON.stringify(pending));
+          } catch (e) {
+            console.error("Local storage sale caching error:", e);
+          }
+        }
       }
     }
   };
@@ -257,16 +307,16 @@ export function useInventoryMutation() {
         const snap = await transaction.get(creditRef);
         let balanceNgn = 0;
         let transactions: CreditTransaction[] = [];
-        
+
         if (snap.exists()) {
           const data = snap.data();
           balanceNgn = data.balanceNgn || 0;
           transactions = data.transactions || [];
         }
-        
+
         const nextBalance = txn.type === "credit" ? balanceNgn + txn.amountNgn : balanceNgn - txn.amountNgn;
         transactions.push(txn);
-        
+
         transaction.set(creditRef, {
           id: creditId,
           customerName: name,
@@ -274,21 +324,17 @@ export function useInventoryMutation() {
           balanceNgn: nextBalance,
           transactions,
           storeId: activeStoreId,
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
         });
       });
 
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Credit transaction network timeout")), 3500)
-      );
-
       txnPromise.catch(() => {});
-      await Promise.race([txnPromise, timeoutPromise]);
+      await withTimeout(txnPromise, 2000);
       return;
     } catch (err) {
       console.warn("Credit transaction timed out or failed; fallback to direct setDoc:", err);
       try {
-        const snap = await getDoc(creditRef);
+        const snap = await withTimeout(getDoc(creditRef), 1500);
         let balanceNgn = 0;
         let transactions: CreditTransaction[] = [];
         if (snap.exists()) {
@@ -299,18 +345,29 @@ export function useInventoryMutation() {
         const nextBalance = txn.type === "credit" ? balanceNgn + txn.amountNgn : balanceNgn - txn.amountNgn;
         transactions.push(txn);
 
-        await setDoc(creditRef, {
-          id: creditId,
-          customerName: name,
-          customerPhone: phone,
-          balanceNgn: nextBalance,
-          transactions,
-          storeId: activeStoreId,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
+        await withTimeout(
+          setDoc(
+            creditRef,
+            {
+              id: creditId,
+              customerName: name,
+              customerPhone: phone,
+              balanceNgn: nextBalance,
+              transactions,
+              storeId: activeStoreId,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          ),
+          1500
+        );
         return;
       } catch (fallbackErr) {
-        handleFirestoreError(fallbackErr, OperationType.WRITE, `credits/${phone}`);
+        console.warn("Credit transaction fallback failed, writing to demoStore:", fallbackErr);
+        if (demoStore) {
+          demoStore.addCreditTransaction(phone, name, txn);
+          bumpVersion();
+        }
       }
     }
   };

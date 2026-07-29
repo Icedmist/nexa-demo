@@ -205,11 +205,15 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
   };
 
   const setupStore = async (onboardingData: Partial<StoreSettings>) => {
-    if (!user || profile?.role !== "admin" || !profile?.storeId) throw new Error("Only admins can perform initial setup");
+    if (!user) throw new Error("User must be authenticated to perform setup");
     
-    const settingsRef = doc(db, "stores", profile.storeId);
+    const targetStoreId = profile?.storeId || `store-${user.uid}`;
+    const settingsRef = doc(db, "stores", targetStoreId);
     const now = new Date();
     const trialEndDate = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+    const ownerName = user.displayName || profile?.name || (user.email ? user.email.split("@")[0] : "Store Owner");
+    const ownerEmail = user.email || profile?.email || "";
 
     const data = {
       ...DEFAULT_SETTINGS,
@@ -218,18 +222,35 @@ export function SystemSettingsProvider({ children }: { children: ReactNode }) {
       trialStartDate: onboardingData.trialStartDate || now.toISOString(),
       trialEndsAt: onboardingData.trialEndsAt || trialEndDate.toISOString(),
       ...onboardingData,
-      id: profile.storeId,
+      id: targetStoreId,
+      storeName: onboardingData.storeName || "My Store",
+      name: onboardingData.storeName || "My Store",
+      businessType: onboardingData.businessType || "general",
       ownerId: user.uid,
+      ownerName,
+      ownerEmail,
+      status: "active",
       isOnboarded: true,
       onboardedAt: now.toISOString(),
-      onboardedBy: user.uid
+      onboardedBy: user.uid,
+      createdAt: now.toISOString()
     };
     
     await setDoc(settingsRef, data, { merge: true });
     
-    // Also mark the admin as having completed onboarding
+    // Also mark the user as admin/onboarded and link storeId
     const userRef = doc(db, "users", user.uid);
-    await setDoc(userRef, { onboardingCompleted: true }, { merge: true });
+    await setDoc(userRef, {
+      id: user.uid,
+      email: ownerEmail,
+      name: ownerName,
+      role: profile?.role || "admin",
+      storeId: targetStoreId,
+      storeName: onboardingData.storeName || "My Store",
+      onboardingCompleted: true,
+      status: "active",
+      updatedAt: now.toISOString()
+    }, { merge: true });
   };
 
   return (

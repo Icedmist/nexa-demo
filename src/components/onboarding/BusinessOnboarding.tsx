@@ -323,6 +323,28 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
       setPendingProducts(templates);
       setStep(3.5);
     } else if (step === 3 && selectedCategories.size > 0) {
+      if (pendingProducts.length <= 1 && (!pendingProducts[0] || !pendingProducts[0].name.trim())) {
+        if (selectedBusiness === "restaurant") {
+          setPendingProducts([
+            { id: "1", name: "Party Jollof Rice & Chicken", price: "3500", costPrice: "2000", stock: "50", unit: "plate", categoryId: "grains" },
+            { id: "2", name: "Grilled Peppered Tilapia Fish", price: "6500", costPrice: "4000", stock: "20", unit: "pcs", categoryId: "proteins" },
+            { id: "3", name: "Beef Suya Skewer", price: "1500", costPrice: "800", stock: "100", unit: "portion", categoryId: "proteins" },
+            { id: "4", name: "Fresh Fruit Smoothie", price: "1800", costPrice: "900", stock: "40", unit: "cup", categoryId: "drinks" },
+          ]);
+        } else if (selectedBusiness === "pharmacy") {
+          setPendingProducts([
+            { id: "1", name: "Paracetamol 500mg Tablets", price: "500", costPrice: "300", stock: "100", unit: "pack", categoryId: "first_aid" },
+            { id: "2", name: "Amoxicillin 500mg Capsules", price: "1500", costPrice: "900", stock: "50", unit: "pack", categoryId: "first_aid" },
+            { id: "3", name: "Vitamin C 100mg Tablets", price: "1000", costPrice: "600", stock: "60", unit: "bottle", categoryId: "otc" },
+          ]);
+        } else if (selectedBusiness === "electronics") {
+          setPendingProducts([
+            { id: "1", name: "Fast Charging USB-C Cable", price: "3500", costPrice: "1800", stock: "50", unit: "pcs", categoryId: "phone_accessories" },
+            { id: "2", name: "Wireless Bluetooth Earbuds", price: "18500", costPrice: "11000", stock: "25", unit: "pcs", categoryId: "audio_tech" },
+            { id: "3", name: "20,000mAh Power Bank", price: "14500", costPrice: "9000", stock: "30", unit: "pcs", categoryId: "powerbanks" },
+          ]);
+        }
+      }
       setStep(3.5);
     } else if (step === 3.5) {
       if (entryMethod === "camera") {
@@ -386,15 +408,16 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
   const categories = allCategories;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm p-4 overflow-y-auto">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className={cn(
-          "w-full rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8 transition-all duration-300 my-auto",
-          (step === 4 || step === 3.5) ? "max-w-2xl" : "max-w-lg"
-        )}
-      >
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-background/95 backdrop-blur-md p-4 sm:p-6 overflow-y-auto min-h-screen">
+      <div className="w-full flex-1 flex items-center justify-center my-auto py-8">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={cn(
+            "w-full rounded-2xl border border-border bg-card p-6 shadow-2xl sm:p-8 transition-all duration-300 my-auto relative",
+            (step === 4 || step === 3.5) ? "max-w-2xl" : "max-w-lg"
+          )}
+        >
         {/* Progress */}
         <div className="mb-6 flex items-center gap-2">
           {[0, 1, 2, 25, 28, 27, 3, 3.5, 4].map((i) => {
@@ -1341,6 +1364,7 @@ export function BusinessOnboarding({ onComplete, onSkip }: BusinessOnboardingPro
           )}
         </AnimatePresence>
       </motion.div>
+      </div>
     </div>
   );
 }

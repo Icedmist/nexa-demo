@@ -4,6 +4,7 @@ export interface FeatureFlags {
   b2bMarketplace: boolean; // true = B2B catalog active
   maxBranches: number; // e.g., 1, 3, 10
   aiAssistant?: boolean; // true = Enterprise AI Assistant active
+  retentionEngineEmailV2?: boolean; // true = Enable V2 robust Gmail API & Gemini retention pipeline
 }
 
 export interface SubscriptionPlan {

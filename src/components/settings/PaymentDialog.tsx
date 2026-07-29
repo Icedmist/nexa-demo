@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
+import { useCurrency } from "@/hooks/useCurrency";
 import { auth, db } from "@/lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { toast } from "sonner";
@@ -73,6 +74,7 @@ const TIER_DETAILS = {
 
 export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: PaymentDialogProps) {
   const { settings } = useSystemSettings();
+  const { formatCurrency } = useCurrency();
   const [step, setStep] = useState<"details" | "submitting" | "success">("details");
   const [copied, setCopied] = useState(false);
   const [payerName, setPayerName] = useState(auth.currentUser?.displayName || "");
@@ -192,7 +194,7 @@ export function PaymentDialog({ open, onOpenChange, targetTier, onSuccess }: Pay
                 <div>
                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Subscription Fee</p>
                   <p className="text-2xl font-extrabold tracking-tight text-white mt-0.5">
-                    ₦{plan.priceNgn.toLocaleString("en-NG")}
+                    {formatCurrency(plan.priceNgn)}
                     <span className="text-xs font-normal text-slate-300"> / month</span>
                   </p>
                 </div>

@@ -184,8 +184,8 @@ function CartPage() {
             </Card>
           )}
 
-          {items.map((item) => (
-            <div key={item.id} className="bg-white rounded-2xl border p-4 flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {items.map((item, index) => (
+            <div key={`${item.id}-${index}`} className="bg-white rounded-2xl border p-4 flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="h-24 w-24 rounded-xl bg-neutral-100 overflow-hidden shrink-0 border">
                 {item.imageUrl ? (
                   <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />

@@ -195,14 +195,18 @@ export function SuperAdminAgentsNetwork() {
 
     // 4. Fetch default commission rule
     const fetchRules = async () => {
-      const snap = await getDoc(doc(db, "commissionRules", "default"));
-      if (snap.exists()) {
-        const data = snap.data();
-        setRules({
-          onboardingBonusNgn: data.onboardingBonusNgn ?? 10000,
-          recurringResidualPercent: data.recurringResidualPercent ?? 15,
-          clawbackWindowDays: data.clawbackWindowDays ?? 30
-        });
+      try {
+        const snap = await getDoc(doc(db, "commissionRules", "default"));
+        if (snap.exists()) {
+          const data = snap.data();
+          setRules({
+            onboardingBonusNgn: data.onboardingBonusNgn ?? 10000,
+            recurringResidualPercent: data.recurringResidualPercent ?? 15,
+            clawbackWindowDays: data.clawbackWindowDays ?? 30
+          });
+        }
+      } catch (err) {
+        console.warn("Could not fetch default commission rules, using fallback state:", err);
       }
     };
     fetchRules();

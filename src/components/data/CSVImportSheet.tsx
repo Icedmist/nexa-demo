@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, type DragEvent } from "react";
+import * as XLSX from "xlsx";
 import { Upload, FileSpreadsheet, AlertCircle, ChevronRight, ChevronLeft, CheckCircle2, XCircle, AlertTriangle, Loader2, Sparkles, HelpCircle, Download } from "lucide-react";
 import { CSVImportGuideModal, downloadSampleCSVTemplate } from "@/components/data/CSVImportGuideModal";
 import {
@@ -255,29 +256,64 @@ export function CSVImportSheet({
   const handleFile = useCallback(
     (file: File) => {
       setFileError(null);
-      if (!file.name.toLowerCase().endsWith(".csv")) {
-        setFileError("Only .csv files are accepted.");
+      const lowerName = file.name.toLowerCase();
+      const isCsv = lowerName.endsWith(".csv") || lowerName.endsWith(".tsv") || lowerName.endsWith(".txt");
+      const isExcel = lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls");
+
+      if (!isCsv && !isExcel) {
+        setFileError("Please upload a valid CSV (.csv) or Excel (.xlsx, .xls) spreadsheet.");
         return;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        setFileError("File exceeds 5 MB limit.");
+      if (file.size > 10 * 1024 * 1024) {
+        setFileError("File exceeds 10 MB limit.");
         return;
       }
       setFileName(file.name);
+
       const reader = new FileReader();
       reader.onload = (e) => {
-        const text = e.target?.result as string;
-        const csv = parseCSV(text);
-        if (csv.headers.length === 0) {
-          setFileError("Could not detect any columns. Check the file format.");
-          return;
+        try {
+          const data = e.target?.result;
+          let csv: ParsedCSV = { headers: [], rows: [] };
+
+          if (isExcel) {
+            const workbook = XLSX.read(data, { type: "binary" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const rawJson = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { header: 1 }) as unknown as unknown[][];
+
+            if (rawJson && rawJson.length > 0) {
+              const headers = (rawJson[0] || []).map((h) => String(h || "").trim());
+              const rows = rawJson.slice(1).map((r) =>
+                headers.map((_, colIdx) => String(r[colIdx] ?? "").trim())
+              ).filter((rowArr) => rowArr.some((val) => val !== ""));
+
+              csv = { headers, rows };
+            }
+          } else {
+            const text = typeof data === "string" ? data : new TextDecoder().decode(data as ArrayBuffer);
+            csv = parseCSV(text);
+          }
+
+          if (csv.headers.length === 0) {
+            setFileError("Could not detect any columns. Check the file format.");
+            return;
+          }
+
+          setParsed(csv);
+          setMapping(autoMap(csv.headers, fields));
+          setStep(2);
+        } catch {
+          setFileError("Failed to parse spreadsheet file structure. Ensure file is valid.");
         }
-        setParsed(csv);
-        setMapping(autoMap(csv.headers, fields));
-        setStep(2);
       };
+
       reader.onerror = () => setFileError("Failed to read file.");
-      reader.readAsText(file);
+      if (isExcel) {
+        reader.readAsBinaryString(file);
+      } else {
+        reader.readAsText(file);
+      }
     },
     [fields],
   );
@@ -398,14 +434,14 @@ export function CSVImportSheet({
                 <Upload className="h-10 w-10 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    Drop a CSV file here or click to browse
+                    Drop a CSV or Excel file here or click to browse
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">.csv only, max 5 MB</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Supports .csv, .xlsx, .xls, .tsv (max 10 MB)</p>
                 </div>
                 <input
                   ref={inputRef}
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls,.tsv,.txt"
                   className="hidden"
                   onChange={handleInputChange}
                 />
