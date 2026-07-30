@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
 import { getStorefrontUrl, getCleanStoreSlug } from "@/lib/utils";
 import { InStoreQrModal } from "@/components/store/InStoreQrModal";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { QRCodeSVG } from "qrcode.react";
 
 export const Route = createFileRoute("/app/ecommerce")({
@@ -20,14 +22,52 @@ export const Route = createFileRoute("/app/ecommerce")({
 function EcommercePage() {
   const { data: items } = useItems({ status: "active" });
   const ecommerceItems = items.filter(i => i.isEcommerceEnabled);
-  const { settings } = useSystemSettings();
+  const { settings, updateSettings } = useSystemSettings();
   const { flags } = useFeatureFlags();
 
   const [inStoreQrOpen, setInStoreQrOpen] = useState(false);
   const [activeProductQr, setActiveProductQr] = useState<{ id: string; name: string; price: number } | null>(null);
 
+  // Edit payment account state
+  const [editAccountOpen, setEditAccountOpen] = useState(false);
+  const [bankName, setBankName] = useState(settings.moniepointBankName || settings.paystackBankName || "Moniepoint Microfinance Bank");
+  const [accountNumber, setAccountNumber] = useState(settings.moniepointAccountNumber || settings.paystackAccountNumber || "5028910423");
+  const [accountName, setAccountName] = useState(settings.moniepointAccountName || settings.paystackAccountName || `${settings.storeName || "Nexa OS Store"} Main Operations`);
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
+
   const storeSlug = getCleanStoreSlug(settings.storeSlug, settings.storeName);
   const storeUrl = getStorefrontUrl(storeSlug);
+
+  const handleOpenEditAccount = () => {
+    setBankName(settings.moniepointBankName || settings.paystackBankName || "Moniepoint Microfinance Bank");
+    setAccountNumber(settings.moniepointAccountNumber || settings.paystackAccountNumber || "5028910423");
+    setAccountName(settings.moniepointAccountName || settings.paystackAccountName || `${settings.storeName || "Nexa OS Store"} Main Operations`);
+    setEditAccountOpen(true);
+  };
+
+  const handleSaveAccountDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingAccount(true);
+    try {
+      await updateSettings({
+        moniepointBankName: bankName,
+        moniepointAccountNumber: accountNumber,
+        moniepointAccountName: accountName,
+        monnifyBankName: bankName,
+        monnifyAccountNumber: accountNumber,
+        monnifyAccountName: accountName,
+        paystackBankName: bankName,
+        paystackAccountNumber: accountNumber,
+        paystackAccountName: accountName,
+      });
+      toast.success("Checkout payment account updated and synced to backend!");
+      setEditAccountOpen(false);
+    } catch (err) {
+      toast.error("Failed to save account details to backend.");
+    } finally {
+      setIsSavingAccount(false);
+    }
+  };
 
   const copyLink = (id: string) => {
     const url = getStorefrontUrl(storeSlug, `product/${id}`);
@@ -87,24 +127,84 @@ function EcommercePage() {
               </Badge>
             </div>
             <h3 className="text-sm font-bold text-foreground">
-              {settings.moniepointBankName || "Moniepoint Microfinance Bank"} — <span className="font-mono text-primary font-extrabold">{settings.moniepointAccountNumber || "5028910423"}</span>
+              {settings.moniepointBankName || settings.paystackBankName || "Moniepoint Microfinance Bank"} — <span className="font-mono text-primary font-extrabold">{settings.moniepointAccountNumber || settings.paystackAccountNumber || "5028910423"}</span>
             </h3>
             <p className="text-xs text-muted-foreground">
-              Account Name: <span className="font-semibold text-foreground">{settings.moniepointAccountName || `${settings.storeName || "Nexa OS Store"} Main Operations`}</span>. Front-store buyers copy this account directly during checkout.
+              Account Name: <span className="font-semibold text-foreground">{settings.moniepointAccountName || settings.paystackAccountName || `${settings.storeName || "Nexa OS Store"} Main Operations`}</span>. Front-store buyers copy this account directly during checkout.
             </p>
           </div>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              window.location.href = "/app/settings";
-            }}
+            onClick={handleOpenEditAccount}
             className="text-xs font-bold border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 h-9"
           >
             Edit Account Details
           </Button>
         </CardContent>
       </Card>
+
+      {/* Edit Payment Account Modal */}
+      <Dialog open={editAccountOpen} onOpenChange={setEditAccountOpen}>
+        <DialogContent className="max-w-md bg-card border-border p-6 rounded-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Landmark className="h-5 w-5 text-emerald-600" />
+              Edit Checkout Payment Account
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Update your store's bank account details. These will immediately sync to your backend and be displayed to customers during online and in-store checkout.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveAccountDetails} className="space-y-4 my-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="bankName" className="text-xs font-semibold">Bank Name / Payment Gateway</Label>
+              <Input
+                id="bankName"
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+                placeholder="e.g. Wema Bank / Titan Paystack"
+                required
+                className="h-10 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="accountNumber" className="text-xs font-semibold">Account Number</Label>
+              <Input
+                id="accountNumber"
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value)}
+                placeholder="e.g. 5028910423"
+                required
+                className="h-10 text-xs font-mono"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="accountName" className="text-xs font-semibold">Account Name</Label>
+              <Input
+                id="accountName"
+                value={accountName}
+                onChange={(e) => setAccountName(e.target.value)}
+                placeholder="e.g. NexaStoreOS / Paystack Merchant"
+                required
+                className="h-10 text-xs"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditAccountOpen(false)} className="text-xs">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSavingAccount} className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
+                {isSavingAccount ? "Saving to Backend..." : "Save Account Details"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* B2B Marketplace Banner Section */}
       <Card className="border border-sky-500/10 bg-gradient-to-r from-sky-500/5 to-primary/5 shadow-none rounded-xl">

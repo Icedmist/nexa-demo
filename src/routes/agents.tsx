@@ -93,6 +93,7 @@ import { ClaimPayoutModal } from "@/components/agents/ClaimPayoutModal";
 import { FieldPitchPlaybook } from "@/components/agents/FieldPitchPlaybook";
 import { AgentQrFlyerModal } from "@/components/agents/AgentQrFlyerModal";
 import { LogVisitModal } from "@/components/agents/LogVisitModal";
+import { StreakCardWidget } from "@/components/engagement/StreakCardWidget";
 
 export const Route = createFileRoute("/agents")({
   component: AgentsPage,
@@ -2012,6 +2013,13 @@ export function AgentsPage() {
                   </Button>
                 </div>
               </div>
+
+              {/* AGENT ENGAGEMENT & STREAK WIDGET */}
+              <StreakCardWidget 
+                entityId={agentProfile?.referralCode || "agent_default"} 
+                entityType="agent" 
+                className="bg-[#141528] border-white/10 text-white shadow-none" 
+              />
 
           {/* KPI CARDS */}
           <div className="grid gap-4 md:grid-cols-4 sm:grid-cols-2">

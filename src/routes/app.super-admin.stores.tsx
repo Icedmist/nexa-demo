@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Edit2, Eye, Trash2, Building2, MapPin, Loader2 } from "lucide-react";
+import { Plus, Search, Edit2, Eye, Trash2, Building2, MapPin, Loader2, Palette, Sparkles, Store, Globe, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { db } from "@/lib/firebase";
@@ -24,6 +24,17 @@ const SECTOR_LABELS: Record<string, string> = {
   social_commerce: "Online Vendor",
   general: "General Retail",
 };
+
+const BRAND_COLORS = [
+  { label: "Teal", value: "#0d9488" },
+  { label: "Blue", value: "#3b82f6" },
+  { label: "Purple", value: "#8b5cf6" },
+  { label: "Rose", value: "#f43f5e" },
+  { label: "Orange", value: "#f97316" },
+  { label: "Green", value: "#22c55e" },
+  { label: "Emerald", value: "#059669" },
+  { label: "Indigo", value: "#6366f1" },
+];
 
 const NIGERIAN_STATES = [
   "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", 
@@ -57,6 +68,26 @@ function SuperAdminStores() {
   const [storeCountry, setStoreCountry] = useState("Nigeria");
   const [storeState, setStoreState] = useState("");
   const [storeLga, setStoreLga] = useState("");
+  const [brandColor, setBrandColor] = useState("#0d9488");
+  const [tagline, setTagline] = useState("");
+  const [currency, setCurrency] = useState("NGN");
+  const [logoUrl, setLogoUrl] = useState("");
+
+  const openAddStore = () => {
+    setName("");
+    setSector("general");
+    setManager("");
+    setManagerEmail("");
+    setValuation("500000");
+    setStoreCountry("Nigeria");
+    setStoreState("");
+    setStoreLga("");
+    setBrandColor("#0d9488");
+    setTagline("Quality Products & Premier Service");
+    setCurrency("NGN");
+    setLogoUrl("");
+    setIsAddOpen(true);
+  };
 
   const filteredStores = useMemo(() => {
     return superStores.filter(
@@ -103,6 +134,10 @@ function SuperAdminStores() {
       country: storeCountry,
       state: storeState,
       lga: storeLga,
+      brandColor,
+      tagline: tagline.trim(),
+      currency,
+      logoUrl: logoUrl.trim(),
     };
 
     const newUser = {
@@ -148,6 +183,11 @@ function SuperAdminStores() {
             country: storeCountry,
             state: storeState,
             lga: storeLga,
+            brandColor,
+            primaryColor: brandColor,
+            tagline: tagline.trim(),
+            currency,
+            logoUrl: logoUrl.trim(),
           }),
           setDoc(doc(db, "users", newUser.id), {
             id: newUser.id,
@@ -192,6 +232,10 @@ function SuperAdminStores() {
     setStoreCountry("Nigeria");
     setStoreState("");
     setStoreLga("");
+    setBrandColor("#0d9488");
+    setTagline("");
+    setCurrency("NGN");
+    setLogoUrl("");
   };
 
   const openEdit = (store: SuperStore) => {
@@ -204,6 +248,10 @@ function SuperAdminStores() {
     setStoreCountry(store.country || "Nigeria");
     setStoreState(store.state || "");
     setStoreLga(store.lga || "");
+    setBrandColor(store.brandColor || "#0d9488");
+    setTagline(store.tagline || "");
+    setCurrency(store.currency || "NGN");
+    setLogoUrl(store.logoUrl || "");
     setIsEditOpen(true);
   };
 
@@ -234,6 +282,10 @@ function SuperAdminStores() {
       country: storeCountry,
       state: storeState,
       lga: storeLga,
+      brandColor,
+      tagline: tagline.trim(),
+      currency,
+      logoUrl: logoUrl.trim(),
     } : s));
 
     const newLog = {
@@ -258,6 +310,11 @@ function SuperAdminStores() {
             country: storeCountry,
             state: storeState,
             lga: storeLga,
+            brandColor,
+            primaryColor: brandColor,
+            tagline: tagline.trim(),
+            currency,
+            logoUrl: logoUrl.trim(),
           }),
           setDoc(doc(db, "system_logs", newLog.id), {
             id: newLog.id,
@@ -393,7 +450,7 @@ function SuperAdminStores() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <Button onClick={() => setIsAddOpen(true)} className="h-9 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+        <Button onClick={openAddStore} className="h-9 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
           <Plus className="h-4 w-4" /> Provision Storefront
         </Button>
       </div>
@@ -422,7 +479,12 @@ function SuperAdminStores() {
                 <tr key={store.id} className="hover:bg-muted/30 transition-colors">
                   <td className="p-3 font-semibold text-foreground">
                     <div className="flex items-center gap-2">
-                      {store.name}
+                      <span
+                        className="h-3 w-3 rounded-full shrink-0 border border-border shadow-2xs"
+                        style={{ backgroundColor: store.brandColor || "#0d9488" }}
+                        title={`Brand Theme Accent: ${store.brandColor || "#0d9488"}`}
+                      />
+                      <span>{store.name}</span>
                       {isCurrentlySelected && (
                         <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/10 text-[10px] py-0 px-1.5 font-bold uppercase">
                           Selected
@@ -496,77 +558,191 @@ function SuperAdminStores() {
 
       {/* Provision store Dialog */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold font-sans">Provision New Branch Storefront</DialogTitle>
-            <DialogDescription>Deploys a containerized multitenant DB slice for a new business location.</DialogDescription>
+            <DialogTitle className="text-lg font-bold font-sans flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-emerald-600" />
+              Provision New Branch Storefront
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Deploys a containerized multitenant DB slice with custom client branding, colors, and location parameters.
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="store-name" className="text-xs font-semibold">Storefront Name</Label>
-              <Input id="store-name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Surulere Retail Hub" className="text-xs h-9" required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="store-sector" className="text-xs font-semibold">Vertical Sector Mode</Label>
-              <select id="store-sector" value={sector} onChange={e => setSector(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none">
-                <option value="agriculture">Agribusiness / Agri-supply</option>
-                <option value="pharmacy">Pharmacy / Healthcare Retail</option>
-                <option value="restaurant">Food & Restaurant Service</option>
-                <option value="social_commerce">Online Vendor (Social Commerce)</option>
-                <option value="electronics">Phones & Accessories</option>
-                <option value="retail">Retail / POS</option>
-                <option value="general">General Retail Store</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="store-manager" className="text-xs font-semibold">Assigned Manager Name</Label>
-              <Input id="store-manager" value={manager} onChange={e => setManager(e.target.value)} placeholder="e.g. John Doe" className="text-xs h-9" required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="store-email" className="text-xs font-semibold">Manager Email Context</Label>
-              <Input id="store-email" type="email" value={managerEmail} onChange={e => setManagerEmail(e.target.value)} placeholder="e.g. manager@store.io" className="text-xs h-9" required />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="store-country" className="text-xs font-semibold">Country</Label>
-                <select id="store-country" value={storeCountry} onChange={e => {
-                  setStoreCountry(e.target.value);
-                  if (e.target.value !== "Nigeria") {
-                    setStoreState("");
-                    setStoreLga("");
-                  }
-                }} className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none">
-                  <option value="Nigeria">Nigeria 🇳🇬</option>
-                  <option value="Other">Other</option>
-                </select>
+
+          <form onSubmit={handleCreate} className="space-y-4 pt-1">
+            {/* Live Client Storefront Card Preview */}
+            <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-2xs space-y-0">
+              <div className="px-3.5 py-2 flex items-center justify-between text-xs font-semibold text-white transition-colors" style={{ backgroundColor: brandColor }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Store className="h-3.5 w-3.5 shrink-0" />
+                  <span className="font-bold truncate text-xs">{name.trim() || "Storefront Name"}</span>
+                </div>
+                <Badge className="bg-white/20 text-white hover:bg-white/30 text-[9px] uppercase font-bold border-none shrink-0">
+                  {SECTOR_LABELS[sector] || sector}
+                </Badge>
               </div>
-              {storeCountry === "Nigeria" ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="store-state" className="text-xs font-semibold">State</Label>
-                  <select id="store-state" value={storeState} onChange={e => setStoreState(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none">
-                    <option value="">-- State --</option>
-                    {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+              <div className="p-3 bg-muted/20 space-y-2 text-xs">
+                <div className="flex items-center gap-3">
+                  {logoUrl.trim() ? (
+                    <img src={logoUrl.trim()} alt="Logo" className="h-10 w-10 rounded-lg object-cover border border-border/60 shadow-2xs shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                  ) : (
+                    <div className="h-10 w-10 rounded-lg flex items-center justify-center font-black text-white text-xs shadow-2xs shrink-0" style={{ backgroundColor: brandColor }}>
+                      {(name.trim() || "S").slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <p className="font-bold text-foreground text-xs truncate">{name.trim() || "New Storefront"}</p>
+                    <p className="text-[11px] text-muted-foreground truncate italic">{tagline.trim() || "Store slogan / brand identity tagline..."}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground pt-0.5">
+                      <span className="flex items-center gap-1 font-medium"><Globe className="h-3 w-3 text-emerald-500 shrink-0" /> {storeCountry} {storeState ? `• ${storeState}` : ""}</span>
+                      <span>•</span>
+                      <span className="font-mono font-semibold text-foreground">Currency: {currency}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Left Column: Branding & Visual Customization */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground border-b pb-1">
+                  <Palette className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Branding & Visual Customization</span>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="store-name" className="text-xs font-semibold">Storefront Name *</Label>
+                  <Input id="store-name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Surulere Retail Hub" className="text-xs h-8.5" required />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="store-tagline" className="text-xs font-semibold">Tagline / Brand Slogan</Label>
+                  <Input id="store-tagline" value={tagline} onChange={e => setTagline(e.target.value)} placeholder="e.g. Quality Goods & Fast Delivery" className="text-xs h-8.5" />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold flex items-center justify-between">
+                    <span>Primary Brand Accent Color</span>
+                    <span className="font-mono text-[10px] font-bold text-muted-foreground">{brandColor}</span>
+                  </Label>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {BRAND_COLORS.map(c => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => setBrandColor(c.value)}
+                        className={`h-6 w-6 rounded-full transition-all border-2 flex items-center justify-center shrink-0 ${
+                          brandColor === c.value ? "border-foreground scale-110 shadow-2xs" : "border-transparent opacity-85 hover:opacity-100"
+                        }`}
+                        style={{ backgroundColor: c.value }}
+                        title={c.label}
+                      >
+                        {brandColor === c.value && <Check className="h-3 w-3 text-white drop-shadow-xs" />}
+                      </button>
+                    ))}
+                    <input
+                      type="color"
+                      value={brandColor}
+                      onChange={e => setBrandColor(e.target.value)}
+                      className="h-6 w-6 rounded-full border border-border cursor-pointer p-0 overflow-hidden bg-transparent"
+                      title="Custom Hex Color"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="store-logo" className="text-xs font-semibold">Store Logo URL (Optional)</Label>
+                  <Input id="store-logo" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://..." className="text-xs h-8.5 font-mono" />
+                </div>
+              </div>
+
+              {/* Right Column: Operations & Location */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground border-b pb-1">
+                  <Building2 className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Operations & Location Parameters</span>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="store-sector" className="text-xs font-semibold">Vertical Sector Category Mode</Label>
+                  <select id="store-sector" value={sector} onChange={e => setSector(e.target.value)} className="w-full h-8.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-none font-medium">
+                    <option value="agriculture">Agribusiness / Agri-supply</option>
+                    <option value="pharmacy">Pharmacy / Healthcare Retail</option>
+                    <option value="restaurant">Food & Restaurant Service</option>
+                    <option value="social_commerce">Online Vendor (Social Commerce)</option>
+                    <option value="electronics">Phones & Accessories</option>
+                    <option value="retail">Retail / POS</option>
+                    <option value="general">General Retail Store</option>
                   </select>
                 </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label htmlFor="store-state" className="text-xs font-semibold">State / Region</Label>
-                  <Input id="store-state" value={storeState} onChange={e => setStoreState(e.target.value)} placeholder="e.g. California" className="text-xs h-9" />
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="store-manager" className="text-xs font-semibold">Assigned Manager *</Label>
+                    <Input id="store-manager" value={manager} onChange={e => setManager(e.target.value)} placeholder="e.g. John Doe" className="text-xs h-8.5" required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="store-email" className="text-xs font-semibold">Manager Email *</Label>
+                    <Input id="store-email" type="email" value={managerEmail} onChange={e => setManagerEmail(e.target.value)} placeholder="manager@store.io" className="text-xs h-8.5" required />
+                  </div>
                 </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="store-lga" className="text-xs font-semibold">
-                  {storeCountry === "Nigeria" ? "LGA (Local Govt)" : "County / District"}
-                </Label>
-                <Input id="store-lga" value={storeLga} onChange={e => setStoreLga(e.target.value)} placeholder={storeCountry === "Nigeria" ? "e.g. Ikeja" : "e.g. Orange County"} className="text-xs h-9" />
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="store-currency" className="text-xs font-semibold">Operating Currency</Label>
+                    <select id="store-currency" value={currency} onChange={e => setCurrency(e.target.value)} className="w-full h-8.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-none font-medium">
+                      <option value="NGN">NGN (₦ - Naira)</option>
+                      <option value="USD">USD ($ - US Dollar)</option>
+                      <option value="EUR">EUR (€ - Euro)</option>
+                      <option value="GBP">GBP (£ - British Pound)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="store-valuation" className="text-xs font-semibold">Asset Valuation</Label>
+                    <Input id="store-valuation" type="number" value={valuation} onChange={e => setValuation(e.target.value)} className="text-xs h-8.5 font-mono" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="store-country" className="text-xs font-semibold">Country</Label>
+                    <select id="store-country" value={storeCountry} onChange={e => {
+                      setStoreCountry(e.target.value);
+                      if (e.target.value !== "Nigeria") {
+                        setStoreState("");
+                        setStoreLga("");
+                      }
+                    }} className="w-full h-8.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-none font-medium">
+                      <option value="Nigeria">Nigeria 🇳🇬</option>
+                      <option value="Other">Other Global Location</option>
+                    </select>
+                  </div>
+                  {storeCountry === "Nigeria" ? (
+                    <div className="space-y-1">
+                      <Label htmlFor="store-state" className="text-xs font-semibold">State</Label>
+                      <select id="store-state" value={storeState} onChange={e => setStoreState(e.target.value)} className="w-full h-8.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-none font-medium">
+                        <option value="">-- State --</option>
+                        {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <Label htmlFor="store-state" className="text-xs font-semibold">State / Region</Label>
+                      <Input id="store-state" value={storeState} onChange={e => setStoreState(e.target.value)} placeholder="e.g. California" className="text-xs h-8.5" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="store-lga" className="text-xs font-semibold">
+                    {storeCountry === "Nigeria" ? "LGA (Local Govt Area)" : "County / District"}
+                  </Label>
+                  <Input id="store-lga" value={storeLga} onChange={e => setStoreLga(e.target.value)} placeholder={storeCountry === "Nigeria" ? "e.g. Ikeja" : "e.g. Orange County"} className="text-xs h-8.5" />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="store-valuation" className="text-xs font-semibold">Asset valuation (NGN)</Label>
-                <Input id="store-valuation" type="number" value={valuation} onChange={e => setValuation(e.target.value)} className="text-xs h-9" />
-              </div>
             </div>
+
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)} disabled={isSubmitting} className="text-xs h-9">Cancel</Button>
               <Button type="submit" disabled={isSubmitting} className="text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-1.5">
@@ -586,77 +762,191 @@ function SuperAdminStores() {
 
       {/* Edit store Dialog */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold font-sans">Configure Store Parameters</DialogTitle>
-            <DialogDescription>Modify settings and manager details for this store slice.</DialogDescription>
+            <DialogTitle className="text-lg font-bold font-sans flex items-center gap-2">
+              <Edit2 className="h-5 w-5 text-primary" />
+              Configure Store Parameters & Branding
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Modify brand theme colors, logo, slogan, and tenant configuration parameters for this store slice.
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleUpdate} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-name" className="text-xs font-semibold">Storefront Name</Label>
-              <Input id="edit-name" value={name} onChange={e => setName(e.target.value)} className="text-xs h-9" required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-sector" className="text-xs font-semibold">Vertical Sector Mode</Label>
-              <select id="edit-sector" value={sector} onChange={e => setSector(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none">
-                <option value="agriculture">Agribusiness / Agri-supply</option>
-                <option value="pharmacy">Pharmacy / Healthcare Retail</option>
-                <option value="restaurant">Food & Restaurant Service</option>
-                <option value="social_commerce">Online Vendor (Social Commerce)</option>
-                <option value="electronics">Phones & Accessories</option>
-                <option value="retail">Retail / POS</option>
-                <option value="general">General Retail Store</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-manager" className="text-xs font-semibold">Assigned Manager Name</Label>
-              <Input id="edit-manager" value={manager} onChange={e => setManager(e.target.value)} className="text-xs h-9" required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="edit-email" className="text-xs font-semibold">Manager Email Context</Label>
-              <Input id="edit-email" type="email" value={managerEmail} onChange={e => setManagerEmail(e.target.value)} className="text-xs h-9" required />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-country" className="text-xs font-semibold">Country</Label>
-                <select id="edit-country" value={storeCountry} onChange={e => {
-                  setStoreCountry(e.target.value);
-                  if (e.target.value !== "Nigeria") {
-                    setStoreState("");
-                    setStoreLga("");
-                  }
-                }} className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none">
-                  <option value="Nigeria">Nigeria 🇳🇬</option>
-                  <option value="Other">Other</option>
-                </select>
+
+          <form onSubmit={handleUpdate} className="space-y-4 pt-1">
+            {/* Live Client Storefront Card Preview */}
+            <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-2xs space-y-0">
+              <div className="px-3.5 py-2 flex items-center justify-between text-xs font-semibold text-white transition-colors" style={{ backgroundColor: brandColor }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Store className="h-3.5 w-3.5 shrink-0" />
+                  <span className="font-bold truncate text-xs">{name.trim() || "Storefront Name"}</span>
+                </div>
+                <Badge className="bg-white/20 text-white hover:bg-white/30 text-[9px] uppercase font-bold border-none shrink-0">
+                  {SECTOR_LABELS[sector] || sector}
+                </Badge>
               </div>
-              {storeCountry === "Nigeria" ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-state" className="text-xs font-semibold">State</Label>
-                  <select id="edit-state" value={storeState} onChange={e => setStoreState(e.target.value)} className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none">
-                    <option value="">-- State --</option>
-                    {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+              <div className="p-3 bg-muted/20 space-y-2 text-xs">
+                <div className="flex items-center gap-3">
+                  {logoUrl.trim() ? (
+                    <img src={logoUrl.trim()} alt="Logo" className="h-10 w-10 rounded-lg object-cover border border-border/60 shadow-2xs shrink-0" onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }} />
+                  ) : (
+                    <div className="h-10 w-10 rounded-lg flex items-center justify-center font-black text-white text-xs shadow-2xs shrink-0" style={{ backgroundColor: brandColor }}>
+                      {(name.trim() || "S").slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <p className="font-bold text-foreground text-xs truncate">{name.trim() || "Storefront"}</p>
+                    <p className="text-[11px] text-muted-foreground truncate italic">{tagline.trim() || "Store slogan / brand identity tagline..."}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground pt-0.5">
+                      <span className="flex items-center gap-1 font-medium"><Globe className="h-3 w-3 text-emerald-500 shrink-0" /> {storeCountry} {storeState ? `• ${storeState}` : ""}</span>
+                      <span>•</span>
+                      <span className="font-mono font-semibold text-foreground">Currency: {currency}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Left Column: Branding & Visual Customization */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground border-b pb-1">
+                  <Palette className="h-3.5 w-3.5 text-primary" />
+                  <span>Branding & Visual Customization</span>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-name" className="text-xs font-semibold">Storefront Name *</Label>
+                  <Input id="edit-name" value={name} onChange={e => setName(e.target.value)} className="text-xs h-8.5" required />
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-tagline" className="text-xs font-semibold">Tagline / Brand Slogan</Label>
+                  <Input id="edit-tagline" value={tagline} onChange={e => setTagline(e.target.value)} placeholder="e.g. Quality Goods & Fast Delivery" className="text-xs h-8.5" />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold flex items-center justify-between">
+                    <span>Primary Brand Accent Color</span>
+                    <span className="font-mono text-[10px] font-bold text-muted-foreground">{brandColor}</span>
+                  </Label>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {BRAND_COLORS.map(c => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => setBrandColor(c.value)}
+                        className={`h-6 w-6 rounded-full transition-all border-2 flex items-center justify-center shrink-0 ${
+                          brandColor === c.value ? "border-foreground scale-110 shadow-2xs" : "border-transparent opacity-85 hover:opacity-100"
+                        }`}
+                        style={{ backgroundColor: c.value }}
+                        title={c.label}
+                      >
+                        {brandColor === c.value && <Check className="h-3 w-3 text-white drop-shadow-xs" />}
+                      </button>
+                    ))}
+                    <input
+                      type="color"
+                      value={brandColor}
+                      onChange={e => setBrandColor(e.target.value)}
+                      className="h-6 w-6 rounded-full border border-border cursor-pointer p-0 overflow-hidden bg-transparent"
+                      title="Custom Hex Color"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-logo" className="text-xs font-semibold">Store Logo URL (Optional)</Label>
+                  <Input id="edit-logo" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://..." className="text-xs h-8.5 font-mono" />
+                </div>
+              </div>
+
+              {/* Right Column: Operations & Location */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground border-b pb-1">
+                  <Building2 className="h-3.5 w-3.5 text-primary" />
+                  <span>Operations & Location Parameters</span>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-sector" className="text-xs font-semibold">Vertical Sector Category Mode</Label>
+                  <select id="edit-sector" value={sector} onChange={e => setSector(e.target.value)} className="w-full h-8.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-none font-medium">
+                    <option value="agriculture">Agribusiness / Agri-supply</option>
+                    <option value="pharmacy">Pharmacy / Healthcare Retail</option>
+                    <option value="restaurant">Food & Restaurant Service</option>
+                    <option value="social_commerce">Online Vendor (Social Commerce)</option>
+                    <option value="electronics">Phones & Accessories</option>
+                    <option value="retail">Retail / POS</option>
+                    <option value="general">General Retail Store</option>
                   </select>
                 </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-state" className="text-xs font-semibold">State / Region</Label>
-                  <Input id="edit-state" value={storeState} onChange={e => setStoreState(e.target.value)} placeholder="e.g. California" className="text-xs h-9" />
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-manager" className="text-xs font-semibold">Assigned Manager *</Label>
+                    <Input id="edit-manager" value={manager} onChange={e => setManager(e.target.value)} className="text-xs h-8.5" required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-email" className="text-xs font-semibold">Manager Email *</Label>
+                    <Input id="edit-email" type="email" value={managerEmail} onChange={e => setManagerEmail(e.target.value)} className="text-xs h-8.5" required />
+                  </div>
                 </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-lga" className="text-xs font-semibold">
-                  {storeCountry === "Nigeria" ? "LGA (Local Govt)" : "County / District"}
-                </Label>
-                <Input id="edit-lga" value={storeLga} onChange={e => setStoreLga(e.target.value)} placeholder={storeCountry === "Nigeria" ? "e.g. Ikeja" : "e.g. Orange County"} className="text-xs h-9" />
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-currency" className="text-xs font-semibold">Operating Currency</Label>
+                    <select id="edit-currency" value={currency} onChange={e => setCurrency(e.target.value)} className="w-full h-8.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-none font-medium">
+                      <option value="NGN">NGN (₦ - Naira)</option>
+                      <option value="USD">USD ($ - US Dollar)</option>
+                      <option value="EUR">EUR (€ - Euro)</option>
+                      <option value="GBP">GBP (£ - British Pound)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-valuation" className="text-xs font-semibold">Inventory Valuation</Label>
+                    <Input id="edit-valuation" type="number" value={valuation} onChange={e => setValuation(e.target.value)} className="text-xs h-8.5 font-mono" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="edit-country" className="text-xs font-semibold">Country</Label>
+                    <select id="edit-country" value={storeCountry} onChange={e => {
+                      setStoreCountry(e.target.value);
+                      if (e.target.value !== "Nigeria") {
+                        setStoreState("");
+                        setStoreLga("");
+                      }
+                    }} className="w-full h-8.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-none font-medium">
+                      <option value="Nigeria">Nigeria 🇳🇬</option>
+                      <option value="Other">Other Global Location</option>
+                    </select>
+                  </div>
+                  {storeCountry === "Nigeria" ? (
+                    <div className="space-y-1">
+                      <Label htmlFor="edit-state" className="text-xs font-semibold">State</Label>
+                      <select id="edit-state" value={storeState} onChange={e => setStoreState(e.target.value)} className="w-full h-8.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs shadow-2xs focus:outline-none font-medium">
+                        <option value="">-- State --</option>
+                        {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <Label htmlFor="edit-state" className="text-xs font-semibold">State / Region</Label>
+                      <Input id="edit-state" value={storeState} onChange={e => setStoreState(e.target.value)} placeholder="e.g. California" className="text-xs h-8.5" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="edit-lga" className="text-xs font-semibold">
+                    {storeCountry === "Nigeria" ? "LGA (Local Govt Area)" : "County / District"}
+                  </Label>
+                  <Input id="edit-lga" value={storeLga} onChange={e => setStoreLga(e.target.value)} placeholder={storeCountry === "Nigeria" ? "e.g. Ikeja" : "e.g. Orange County"} className="text-xs h-8.5" />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-valuation" className="text-xs font-semibold">Inventory Valuation (NGN)</Label>
-                <Input id="edit-valuation" type="number" value={valuation} onChange={e => setValuation(e.target.value)} className="text-xs h-9" />
-              </div>
             </div>
+
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} disabled={isSubmitting} className="text-xs h-9">Cancel</Button>
               <Button type="submit" disabled={isSubmitting} className="text-xs h-9 bg-primary hover:bg-primary/95 text-white font-semibold flex items-center justify-center gap-1.5">

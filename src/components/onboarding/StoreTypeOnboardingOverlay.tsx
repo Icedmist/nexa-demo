@@ -17,7 +17,7 @@ export function StoreTypeOnboardingOverlay({
   onOpenChange: externalOnOpenChange,
   forceShow = false,
 }: StoreTypeOnboardingOverlayProps) {
-  const { storeType, setStoreType } = useStoreType();
+  const { storeType, setStoreType, options } = useStoreType();
   const [internalOpen, setInternalOpen] = useState(false);
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export function StoreTypeOnboardingOverlay({
     if (typeof window !== "undefined") {
       localStorage.setItem("nexa_storetype_onboarded", "true");
     }
-    const option = STORE_TYPE_OPTIONS.find((o) => o.id === typeId);
+    const option = options.find((o) => o.id === typeId);
     toast.success(`1-Tap Preference Saved! Workspace adapted to ${option?.title || typeId}.`, {
       description: "Sales POS layout, pricing controls, and dashboard metrics updated instantly.",
     });
@@ -49,7 +49,7 @@ export function StoreTypeOnboardingOverlay({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-2xl p-6 sm:p-8 rounded-3xl border-border bg-card shadow-2xl overflow-hidden">
+      <DialogContent className="max-w-2xl p-6 sm:p-8 rounded-3xl border-border bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="space-y-2 text-center sm:text-left">
           <div className="flex items-center gap-2 justify-center sm:justify-start">
             <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
@@ -71,7 +71,7 @@ export function StoreTypeOnboardingOverlay({
         </DialogHeader>
 
         <div className="grid gap-3.5 my-4 sm:grid-cols-3">
-          {STORE_TYPE_OPTIONS.map((opt) => {
+          {options.map((opt) => {
             const isSelected = storeType === opt.id;
             return (
               <div

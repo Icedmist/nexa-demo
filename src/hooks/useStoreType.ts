@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { useDemo } from "./useDemo";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 
@@ -57,10 +59,15 @@ export const STORE_TYPE_OPTIONS: StoreTypeOption[] = [
 export function useStoreType() {
   const { isDemo, onboarding, updateOnboarding } = useDemo();
   const { settings, updateSettings } = useSystemSettings();
+  const [options, setOptions] = useState<StoreTypeOption[]>(STORE_TYPE_OPTIONS);
 
   const activeBusinessType = isDemo ? onboarding?.businessType : settings?.businessType;
+  const backendStoreType = settings?.storeClientType;
 
   const getInitialStoreType = (): StoreClientType => {
+    if (backendStoreType && ["retailer", "wholesaler", "supermarket"].includes(backendStoreType)) {
+      return backendStoreType;
+    }
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY) as StoreClientType;
       if (saved && ["retailer", "wholesaler", "supermarket"].includes(saved)) {
@@ -74,6 +81,33 @@ export function useStoreType() {
 
   const [storeType, setStoreTypeState] = useState<StoreClientType>(getInitialStoreType);
 
+  // Sync state when backend settings update from Firestore
+  useEffect(() => {
+    if (backendStoreType && ["retailer", "wholesaler", "supermarket"].includes(backendStoreType)) {
+      setStoreTypeState(backendStoreType);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(LOCAL_STORAGE_KEY, backendStoreType);
+      }
+    }
+  }, [backendStoreType]);
+
+  // Optionally fetch dynamic store type options from Firestore if configured
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "storeTypeOptions"), (snap) => {
+      if (!snap.empty) {
+        const list: StoreTypeOption[] = [];
+        snap.forEach((docSnap) => {
+          list.push({ id: docSnap.id as StoreClientType, ...docSnap.data() } as StoreTypeOption);
+        });
+        if (list.length > 0) {
+          setOptions(list);
+        }
+      }
+    }, (err) => console.warn("Store type options listener:", err.message));
+
+    return () => unsub();
+  }, []);
+
   const setStoreType = useCallback(
     (type: StoreClientType) => {
       setStoreTypeState(type);
@@ -81,12 +115,15 @@ export function useStoreType() {
         localStorage.setItem(LOCAL_STORAGE_KEY, type);
       }
       
-      // Sync with businessType if appropriate
+      // Sync with businessType & storeClientType in backend
       const mappedBusinessType = type === "wholesaler" ? "wholesale" : type === "supermarket" ? "retail" : "retail";
       if (isDemo) {
         updateOnboarding({ businessType: mappedBusinessType });
       } else if (updateSettings) {
-        updateSettings({ businessType: mappedBusinessType });
+        updateSettings({
+          storeClientType: type,
+          businessType: mappedBusinessType
+        });
       }
 
       // Dispatch custom event for real-time reactivity across components
@@ -112,7 +149,7 @@ export function useStoreType() {
     isRetailer: storeType === "retailer",
     isWholesaler: storeType === "wholesaler",
     isSupermarket: storeType === "supermarket",
-    currentOption: STORE_TYPE_OPTIONS.find((o) => o.id === storeType) || STORE_TYPE_OPTIONS[0],
-    options: STORE_TYPE_OPTIONS,
+    currentOption: options.find((o) => o.id === storeType) || options[0],
+    options,
   };
 }

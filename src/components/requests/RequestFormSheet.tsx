@@ -23,6 +23,8 @@ import {
 import { useCreateRequest } from "@/hooks/useInventoryMutations";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDemo } from "@/hooks/useDemo";
+import { useRole } from "@/hooks/useRole";
+import { useEngagementStreaks } from "@/hooks/useEngagementStreaks";
 import { RequestStatus } from "@/types/inventory";
 import type { Item } from "@/types/inventory";
 
@@ -55,6 +57,8 @@ interface RequestFormSheetProps {
 export function RequestFormSheet({ open, onOpenChange, items }: RequestFormSheetProps) {
   const { user, profile } = useAuth();
   const { isDemo } = useDemo();
+  const { currentStoreId } = useRole();
+  const { recordActivity, triggerMilestone } = useEngagementStreaks(currentStoreId || "default_store", "store");
   const createRequest = useCreateRequest();
   const [title, setTitle] = useState("");
   const [reason, setReason] = useState("");
@@ -143,6 +147,8 @@ export function RequestFormSheet({ open, onOpenChange, items }: RequestFormSheet
       {
         onSuccess: () => {
           toast.success("Request submitted");
+          recordActivity("transfer");
+          triggerMilestone("first_transfer");
           resetForm();
           onOpenChange(false);
         },

@@ -97,43 +97,89 @@ export function useDeleteItem() {
 }
 
 
+function cleanPayload<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date) && 'toDate' in value && typeof (value as { toDate?: unknown }).toDate === 'function') {
+        cleaned[key] = value;
+      } else if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+        cleaned[key] = cleanPayload(value as Record<string, unknown>);
+      } else {
+        cleaned[key] = value;
+      }
+    }
+  }
+  return cleaned;
+}
+
 export function useCreateMovement() {
   const { profile } = useAuth();
+  const { demoStore, bumpVersion } = useDemo();
+
   return useAppMutation<StockMovement>(
     (store, data) => {
       store.createMovement(data);
       generateStockAlerts(store);
     },
     async (data) => {
+      // 1. Always update local demoStore for immediate UI reaction
+      if (demoStore) {
+        demoStore.createMovement(data);
+        generateStockAlerts(demoStore);
+        bumpVersion();
+      }
+
       const { id, ...rest } = data;
+      const payload = cleanPayload({
+        ...rest,
+        storeId: profile?.storeId || "default-store",
+        createdAt: data.createdAt || new Date().toISOString(),
+      });
+
       try {
         await runTransaction(db, async (transaction) => {
-          // 1. Fetch item data (READ)
+          // A. Fetch item data (READ - must be before any WRITE in Firestore transaction)
           const itemRef = doc(db, "items", data.itemId);
           const itemSnap = await transaction.get(itemRef);
           
-          // 2. Record movement (WRITE)
-          transaction.set(doc(db, "movements", id), {
-            ...rest,
-            storeId: profile?.storeId,
-            createdAt: serverTimestamp()
+          // B. Record movement (WRITE)
+          const movementRef = doc(db, "movements", id);
+          transaction.set(movementRef, {
+            ...payload,
+            createdAt: serverTimestamp(),
           });
           
-          // 3. Update stock if it's a core movement (WRITE)
+          // C. Update stock if item exists (WRITE)
           if (itemSnap.exists()) {
-            let newStock = itemSnap.data().currentStock || 0;
-            if (data.type === "received") newStock += data.quantity;
-            else if (data.type === "shipped") newStock = Math.max(0, newStock - data.quantity);
-            else if (data.type === "adjusted") newStock = Math.max(0, newStock + data.quantity);
+            let newStock = Number(itemSnap.data().currentStock) || 0;
+            const absQty = Math.abs(data.quantity);
+            const moveType = (data.type || "").toLowerCase();
+
+            if (moveType === "received") {
+              newStock += absQty;
+            } else if (moveType === "shipped") {
+              newStock = Math.max(0, newStock - absQty);
+            } else if (moveType === "adjusted") {
+              newStock = Math.max(0, newStock + data.quantity);
+            }
             
-            transaction.update(itemRef, { 
+            const updates: Record<string, unknown> = cleanPayload({ 
               currentStock: newStock,
-              updatedAt: serverTimestamp()
+              updatedAt: serverTimestamp(),
+              ...(moveType === "transferred" && data.toLocationId
+                ? { locationId: data.toLocationId }
+                : {})
             });
+
+            transaction.update(itemRef, updates);
           }
         });
       } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `movements/${id}`);
+        console.warn("Firestore movement write error (saved to local state):", err);
+        if (!demoStore) {
+          handleFirestoreError(err, OperationType.WRITE, `movements/${id}`);
+        }
       }
     }
   );

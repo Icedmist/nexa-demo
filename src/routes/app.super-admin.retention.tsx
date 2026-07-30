@@ -392,6 +392,23 @@ function SuperAdminRetention() {
       setLoading(false);
     });
 
+    // 6. Subscribe to Target Goals in Firestore
+    const unsubTargets = onSnapshot(collection(db, "retentionTargets"), (snap) => {
+      if (snap.empty) {
+        // Seed initial target goals into Firestore
+        INITIAL_TARGET_GOALS.forEach(goal => {
+          setDoc(doc(db, "retentionTargets", goal.targetId), goal).catch(console.error);
+        });
+        setTargets(INITIAL_TARGET_GOALS);
+      } else {
+        const list: RetentionTargetGoal[] = [];
+        snap.forEach((docSnap) => {
+          list.push({ targetId: docSnap.id, ...docSnap.data() as Omit<RetentionTargetGoal, "targetId"> });
+        });
+        setTargets(list);
+      }
+    }, (err) => console.warn("Retention targets listener info:", err.message));
+
     // Fetch metric details
     fetchMetrics();
     fetchRetentionStatus();
@@ -403,6 +420,7 @@ function SuperAdminRetention() {
       unsubStores();
       unsubReferrals();
       unsubAgents();
+      unsubTargets();
     };
   }, []);
 
@@ -777,13 +795,14 @@ function SuperAdminRetention() {
     }
   };
 
-  const handleCreateTargetGoal = () => {
+  const handleCreateTargetGoal = async () => {
     if (!newTarget.title) {
       toast.error("Target title is required.");
       return;
     }
+    const goalId = `tgt_${Date.now()}`;
     const goal: RetentionTargetGoal = {
-      targetId: `tgt_${Date.now()}`,
+      targetId: goalId,
       title: newTarget.title,
       description: newTarget.description || "",
       metricName: newTarget.metricName || "Progress Rate",
@@ -794,30 +813,39 @@ function SuperAdminRetention() {
       status: "active"
     };
 
-    setTargets([...targets, goal]);
-    setShowTargetForm(false);
-    setNewTarget({
-      title: "",
-      description: "",
-      metricName: "Progress Rate",
-      currentValue: 0,
-      targetValue: 100,
-      unit: "%",
-      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-      status: "active"
-    });
-    toast.success("New retention goal target established!");
+    try {
+      await setDoc(doc(db, "retentionTargets", goalId), goal);
+      setShowTargetForm(false);
+      setNewTarget({
+        title: "",
+        description: "",
+        metricName: "Progress Rate",
+        currentValue: 0,
+        targetValue: 100,
+        unit: "%",
+        deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        status: "active"
+      });
+      toast.success("New retention goal target established!");
+    } catch (err) {
+      toast.error("Failed to save target goal to database.");
+    }
   };
 
-  const handleUpdateTargetValue = (targetId: string, value: number) => {
-    setTargets(targets.map(t => {
-      if (t.targetId === targetId) {
-        const newVal = Math.min(t.targetValue, Math.max(0, value));
-        const newStatus = newVal >= t.targetValue ? "achieved" : "active";
-        return { ...t, currentValue: newVal, status: newStatus as "active" | "achieved" };
-      }
-      return t;
-    }));
+  const handleUpdateTargetValue = async (targetId: string, value: number) => {
+    const target = targets.find(t => t.targetId === targetId);
+    if (!target) return;
+    const newVal = Math.min(target.targetValue, Math.max(0, value));
+    const newStatus = newVal >= target.targetValue ? "achieved" : "active";
+
+    try {
+      await updateDoc(doc(db, "retentionTargets", targetId), {
+        currentValue: newVal,
+        status: newStatus
+      });
+    } catch (err) {
+      toast.error("Failed to update target increment.");
+    }
   };
 
   return (

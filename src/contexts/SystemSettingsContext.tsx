@@ -29,6 +29,7 @@ export interface StoreSettings {
   brandColor?: string;
   logoUrl?: string;
   businessType?: string;
+  storeClientType?: "retailer" | "wholesaler" | "supermarket";
   electronicsMainType?: "devices" | "accessories" | "both";
   textilePrimarilySellsBy?: "yard" | "roll" | "both";
   textileSubcategories?: { id: string; label: string; emoji: string; supportedUnits?: string[] }[];

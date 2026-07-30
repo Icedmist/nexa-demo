@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { ShoppingCart, ArrowLeft, ArrowRight, Check, Utensils, Box, Truck, QrCode, Download, Printer, Store, Layers, Calculator, CreditCard, Tag, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useItems } from "@/hooks/useInventoryData";
+import { useItems, useSales } from "@/hooks/useInventoryData";
 import { useDemo } from "@/hooks/useDemo";
 import { useStoreType } from "@/hooks/useStoreType";
+import { useRole } from "@/hooks/useRole";
+import { useEngagementStreaks } from "@/hooks/useEngagementStreaks";
 import { useSystemSettings } from "@/contexts/SystemSettingsContext";
 import { cn, getStorefrontUrl, getCleanStoreSlug } from "@/lib/utils";
 import { SUPPORTED_UNITS } from "@/types/inventory";
@@ -40,6 +42,9 @@ type StepId = (typeof STEPS)[number]["id"];
 
 export function SalesGrid() {
   const { data: items } = useItems();
+  const { data: allSales = [] } = useSales();
+  const { currentStoreId } = useRole();
+  const { recordActivity, triggerMilestone } = useEngagementStreaks(currentStoreId || "default_store", "store");
   const { isDemo, onboarding: demoOnboarding } = useDemo();
   
   const offline = useFirebaseOffline();
@@ -269,6 +274,14 @@ export function SalesGrid() {
     setPriceOverrides(new Map());
     setActiveTier("retail");
     setStep("browse");
+
+    // Record engagement activity and milestones
+    recordActivity("sale");
+    triggerMilestone("first_sale");
+    if (allSales && allSales.length + 1 >= 100) {
+      triggerMilestone("sale_100");
+    }
+
     // If table ordered, mark this table in localStorage as "cooking"
     if (isRestaurant && diningMode === "dine-in" && tableNumber) {
       try {

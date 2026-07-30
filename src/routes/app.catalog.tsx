@@ -25,6 +25,8 @@ import {
 import { CatalogTable, type SortState } from "@/components/catalog/CatalogTable";
 import { CatalogGrid } from "@/components/catalog/CatalogGrid";
 import { CatalogFilters } from "@/components/catalog/CatalogFilters";
+import { CatalogCompletenessMeter } from "@/components/catalog/CatalogCompletenessMeter";
+import { useEngagementStreaks } from "@/hooks/useEngagementStreaks";
 import { ItemFormSheet } from "@/components/catalog/ItemFormSheet";
 import { BulkActionBar } from "@/components/catalog/BulkActionBar";
 import { ItemDetailSheet } from "@/components/catalog/ItemDetailSheet";
@@ -159,7 +161,8 @@ function CatalogPage() {
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
   const { can } = usePermissions();
-  const { isAdmin } = useRole();
+  const { isAdmin, currentStoreId } = useRole();
+  const { recordActivity } = useEngagementStreaks(currentStoreId || "default_store", "store");
   const sector = useSector();
 
   const filteredCategories = useMemo(() => {
@@ -222,7 +225,12 @@ function CatalogPage() {
   const handleSave = useCallback((data: Partial<Item>) => {
     if (editItem) {
       updateItem.mutate({ id: editItem.id, updates: { ...data, needsReview: false } }, {
-        onSuccess: () => { toast.success("Item updated & reviewed!"); setSheetOpen(false); setEditItem(null); },
+        onSuccess: () => {
+          toast.success("Item updated & reviewed!");
+          setSheetOpen(false);
+          setEditItem(null);
+          recordActivity("catalog_add");
+        },
         onError: (e) => toast.error(e.message || "Failed to update item. Please try again."),
       });
     } else {
@@ -259,11 +267,12 @@ function CatalogPage() {
             duration: 5000,
           });
           setSheetOpen(false);
+          recordActivity("catalog_add");
         },
         onError: (e) => toast.error(e.message || "Failed to create item. Please try again."),
       });
     }
-  }, [editItem, createItem, updateItem, deleteItem]);
+  }, [editItem, createItem, updateItem, deleteItem, recordActivity]);
 
   const handleDelete = useCallback(() => {
     if (!deleteTarget) return;
@@ -376,6 +385,8 @@ function CatalogPage() {
             </PermissionGate>
           </div>
         </div>
+
+      <CatalogCompletenessMeter items={allItems} onQuickActionClick={openCreate} />
 
       <Card className="p-4">
         <CatalogFilters 

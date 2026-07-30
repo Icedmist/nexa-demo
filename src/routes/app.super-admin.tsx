@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useLocation, useNavigate, Outlet } from "@tanstack/react-router";
-import { useState, useEffect, useMemo, createContext, useContext } from "react";
+import { useState, useEffect, useMemo, createContext, useContext, useRef } from "react";
 import { useRole } from "@/hooks/useRole";
 import { useDemo } from "@/hooks/useDemo";
 import { db } from "@/lib/firebase";
@@ -43,6 +43,10 @@ export interface SuperStore {
   country?: string;
   state?: string;
   lga?: string;
+  brandColor?: string;
+  tagline?: string;
+  currency?: string;
+  logoUrl?: string;
 }
 
 export interface SuperUser {
@@ -334,6 +338,27 @@ export function SuperAdminLayout() {
     toast.success("Consolidated enterprise JSON backup generated & downloaded!");
   };
 
+  const tabsNavRef = useRef<HTMLDivElement>(null);
+  const activeTabRef = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    if (activeTabRef.current && tabsNavRef.current) {
+      const container = tabsNavRef.current;
+      const activeTab = activeTabRef.current;
+
+      const containerWidth = container.offsetWidth;
+      const tabLeft = activeTab.offsetLeft;
+      const tabWidth = activeTab.offsetWidth;
+
+      const targetScrollLeft = tabLeft - containerWidth / 2 + tabWidth / 2;
+
+      container.scrollTo({
+        left: Math.max(0, targetScrollLeft),
+        behavior: "smooth",
+      });
+    }
+  }, [location.pathname]);
+
   if (!isSuperAdmin) return null;
 
   const tabs = [
@@ -454,14 +479,19 @@ export function SuperAdminLayout() {
         </div>
 
         {/* Tabs links */}
-        <div className="border-b flex items-center gap-1 overflow-x-auto scroller-none">
+        <div ref={tabsNavRef} className="border-b flex items-center gap-1 overflow-x-auto scroller-none">
           {tabs.map((tab) => {
             const Icon = tab.icon;
-            const isTabActive = location.pathname === tab.href;
+            const isTabActive =
+              tab.href === "/app/super-admin"
+                ? location.pathname === "/app/super-admin" || location.pathname === "/app/super-admin/"
+                : location.pathname === tab.href || location.pathname.startsWith(tab.href + "/");
+
             return (
               <Link
                 key={tab.href}
                 to={tab.href}
+                ref={isTabActive ? activeTabRef : null}
                 className={`px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap -mb-px flex items-center gap-2 transition-all ${
                   isTabActive
                     ? "border-primary text-primary font-bold"
