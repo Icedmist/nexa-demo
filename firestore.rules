@@ -201,7 +201,7 @@ service cloud.firestore {
     match /support_chats/{chatId} {
       allow create: if true;
       allow get: if true;
-      allow update: if true;
+      allow update: if isSignedIn() || (incoming().diff(existing()).affectedKeys().hasOnly(['messages', 'lastMessage', 'updatedAt', 'unreadCount']));
       allow list: if isSignedIn();
       allow delete: if isAdmin();
     }
@@ -257,7 +257,7 @@ service cloud.firestore {
     // ─── AI ASSISTANT COLLECTIONS ───────────────────────
     match /aiCreditLedger/{ledgerId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     match /aiAssistantRequests/{requestId} {
@@ -273,7 +273,7 @@ service cloud.firestore {
     // ─── DRUG LIBRARY ────────────────────────────────────
     match /drugLibrary/{drugId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if isAdmin();
     }
   }
 }

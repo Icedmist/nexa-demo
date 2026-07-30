@@ -116,7 +116,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       email === "support@nexa.com";
 
     return isBootstrapped || hasSuperAdminDoc;
-  }, [isDemo, demoRole, demoSuperAdmin, user, hasSuperAdminDoc]);
+  }, [isDemo, user, hasSuperAdminDoc]);
 
   // Fetch all stores if Super Admin in real mode
   useEffect(() => {

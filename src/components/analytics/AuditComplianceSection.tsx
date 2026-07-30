@@ -23,6 +23,7 @@ import {
   Calendar,
   CheckCircle2,
   FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 
 interface AuditComplianceSectionProps {
@@ -81,8 +82,11 @@ export function AuditComplianceSection({ items, categories }: AuditComplianceSec
   const totalBeverageUnits = beverageItems.reduce((sum, i) => sum + (i.currentStock || 0), 0);
   const beverageValuation = beverageItems.reduce((sum, i) => sum + (i.sellingPriceNgn || 0) * (i.currentStock || 0), 0);
 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
   // PDF Generation with jsPDF & AutoTable
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    setIsGeneratingPdf(true);
     try {
       const doc = new jsPDF();
 
@@ -171,6 +175,8 @@ export function AuditComplianceSection({ items, categories }: AuditComplianceSec
     } catch (err) {
       console.error(err);
       toast.error("Failed to generate PDF audit report.");
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -206,11 +212,21 @@ export function AuditComplianceSection({ items, categories }: AuditComplianceSec
             </Button>
             <Button
               onClick={handleExportPDF}
+              disabled={isGeneratingPdf}
               size="sm"
               className="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold shadow-md"
             >
-              <FileCheck className="h-4 w-4 mr-1.5" />
-              Export Branded PDF
+              {isGeneratingPdf ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  Generating PDF…
+                </>
+              ) : (
+                <>
+                  <FileCheck className="h-4 w-4 mr-1.5" />
+                  Export Branded PDF
+                </>
+              )}
             </Button>
           </div>
         </CardContent>

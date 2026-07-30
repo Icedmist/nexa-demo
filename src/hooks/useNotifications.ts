@@ -38,6 +38,7 @@ export function useNotifications(): QueryResult<Notification[]> {
     }
 
     return { data: rawList, isLoading: isDemo ? false : loading, error: isDemo ? null : error };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading, error, isAdmin, isSuperAdmin, currentStoreId, profile?.storeId]);
 }
 

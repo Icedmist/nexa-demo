@@ -27,6 +27,9 @@ import { FAQ_DATA } from "@/lib/faq-data";
 import { INITIAL_COURSE_MODULES, CourseModule } from "@/lib/course-data";
 import { ProtectedTourGuideViewer } from "@/components/shared/ProtectedTourGuideViewer";
 import { DemoPassGeneratorModal } from "@/components/shared/DemoPassGeneratorModal";
+import { UserManualSection } from "@/components/shared/UserManualSection";
+import { AppInteractiveTourModal } from "@/components/shared/AppInteractiveTourModal";
+import { DemoModeHelpSection } from "@/components/shared/DemoModeHelpSection";
 import { useRole } from "@/hooks/useRole";
 
 export const Route = createFileRoute("/app/help")({
@@ -36,10 +39,11 @@ export const Route = createFileRoute("/app/help")({
 
 function HelpPage() {
   const { isSuperAdmin } = useRole();
-  const [activeTab, setActiveTab] = useState<"faq" | "course" | "tour_guides">("faq");
+  const [activeTab, setActiveTab] = useState<"faq" | "course" | "tour_guides" | "demo_sandbox">("faq");
   const [search, setSearch] = useState("");
   const [selectedCourse, setSelectedCourse] = useState<CourseModule>(INITIAL_COURSE_MODULES[0]);
   const [showDemoModal, setShowDemoModal] = useState(false);
+  const [showInteractiveTour, setShowInteractiveTour] = useState(false);
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
 
   const filteredFaqs = useMemo(() => {
@@ -71,20 +75,34 @@ function HelpPage() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Knowledge base, video training courses, protected PDF tour guides, and 12-hour device demo links.
+              Knowledge base, official PDF user manual, interactive guided tour, video training courses, and device demo passes.
             </p>
           </div>
         </div>
 
-        <Button
-          variant="default"
-          size="sm"
-          className="text-xs font-bold h-9 bg-primary hover:bg-primary/95 text-primary-foreground gap-2 shadow-md shrink-0"
-          onClick={() => setShowDemoModal(true)}
-        >
-          <Lock className="h-4 w-4 text-amber-400" /> Generate 12h Demo Link
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs font-bold h-9 border-primary/30 text-primary hover:bg-primary/10 gap-1.5 shadow-sm"
+            onClick={() => setShowInteractiveTour(true)}
+          >
+            <Sparkles className="h-4 w-4 text-amber-500" /> Start Interactive Tour
+          </Button>
+
+          <Button
+            variant="default"
+            size="sm"
+            className="text-xs font-bold h-9 bg-primary hover:bg-primary/95 text-primary-foreground gap-2 shadow-md"
+            onClick={() => setShowDemoModal(true)}
+          >
+            <Lock className="h-4 w-4 text-amber-400" /> Generate 12h Demo Link
+          </Button>
+        </div>
       </div>
+
+      {/* Official System PDF User Manual Section (Uploadable by Super Admin) */}
+      <UserManualSection />
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-muted-foreground/15 pb-3">
@@ -113,6 +131,15 @@ function HelpPage() {
           onClick={() => setActiveTab("tour_guides")}
         >
           <FileText className="h-3.5 w-3.5 text-blue-500" /> Protected Tour Guides
+        </Button>
+
+        <Button
+          variant={activeTab === "demo_sandbox" ? "default" : "outline"}
+          size="sm"
+          className="text-xs h-8 font-bold gap-1.5"
+          onClick={() => setActiveTab("demo_sandbox")}
+        >
+          <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Field Demo Sandbox & Pass
         </Button>
       </div>
 
@@ -287,6 +314,9 @@ function HelpPage() {
         </div>
       )}
 
+      {/* TAB 4: FIELD DEMO SANDBOX & PASS GENERATOR */}
+      {activeTab === "demo_sandbox" && <DemoModeHelpSection />}
+
       {/* Video Modal Player */}
       {activeVideoUrl && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -333,6 +363,12 @@ function HelpPage() {
           />
         </div>
       )}
+
+      {/* Interactive App Tour Modal */}
+      <AppInteractiveTourModal
+        open={showInteractiveTour}
+        onOpenChange={setShowInteractiveTour}
+      />
     </div>
   );
 }

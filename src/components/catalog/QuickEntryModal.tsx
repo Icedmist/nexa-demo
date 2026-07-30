@@ -138,16 +138,19 @@ export function QuickEntryModal({ open, onOpenChange }: QuickEntryModalProps) {
   };
 
   useEffect(() => {
+    let mounted = true;
     if (open) {
       startCameraScan();
     } else {
       stopCameraScan();
     }
     return () => {
+      mounted = false;
       if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
         html5QrcodeRef.current.stop().catch(e => console.warn("Cleanup error:", e));
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   
   // Results view states

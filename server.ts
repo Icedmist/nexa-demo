@@ -153,9 +153,9 @@ Look up or utilize your global product catalog knowledge (including Nigerian Fas
 Identify the correct brand name, complete product name (with size, volume, weight or packaging details if possible), standard retail category, an appropriate single descriptive emoji for the item, and typical cost and retail selling prices in Nigerian Nairas (NGN).
 Provide the response as clean structured JSON.`;
 
-      // Call Gemini 3.5 Flash for fast structured JSON retrieval
+      // Call Gemini 2.5 Flash for fast structured JSON retrieval
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -219,7 +219,7 @@ Include some relevant emojis.
 Do not include placeholders like [Price] or [Link].`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
       });
 
@@ -1484,7 +1484,7 @@ If they ask to perform direct database modifications like "Provision a store for
       ];
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents,
         config: {
           systemInstruction,
@@ -1615,7 +1615,7 @@ Instructions:
       ];
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-2.5-flash",
         contents,
         config: {
           systemInstruction,
@@ -2643,7 +2643,7 @@ Respond strictly with valid JSON conforming to this schema:
       }
 
       const activeAi = getGeminiClient();
-      const modelName = "gemini-3.5-flash";
+      const modelName = "gemini-2.5-flash";
 
       const sampleItems = Array.isArray(items) ? items.slice(0, 30) : [];
       const totalCount = Array.isArray(items) ? items.length : 0;

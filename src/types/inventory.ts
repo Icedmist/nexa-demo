@@ -215,6 +215,13 @@ export interface StockMovement {
   notes: string;
   performedBy: string;
   createdAt: string;
+  unitCostNgn?: number;
+  totalCostNgn?: number;
+  paymentAmountNgn?: number;
+  remainingBalanceNgn?: number;
+  paymentStatus?: "unpaid" | "partial" | "paid";
+  storeId?: string;
+  storeName?: string;
 }
 
 export interface PurchaseOrderItem {

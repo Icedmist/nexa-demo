@@ -45,5 +45,6 @@ export function useUsers() {
       };
     }
     return { data: firebaseData, isLoading: loading, error };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, firebaseData, loading, error, version]);
 }

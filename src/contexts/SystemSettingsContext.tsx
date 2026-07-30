@@ -67,6 +67,11 @@ export interface StoreSettings {
   state?: string;
   lga?: string;
   enableManagerProductCollectionDebt?: boolean;
+  userManualUrl?: string;
+  userManualTitle?: string;
+  userManualVersion?: string;
+  userManualUpdatedAt?: string;
+  userManualDescription?: string;
 }
 
 const DEFAULT_SETTINGS: StoreSettings = {
@@ -105,7 +110,12 @@ const DEFAULT_SETTINGS: StoreSettings = {
   paystackPublicKey: "",
   paystackSecretKey: "",
   paystackStatus: "waiting_for_keys",
-  enableManagerProductCollectionDebt: true
+  enableManagerProductCollectionDebt: true,
+  userManualTitle: "NexaOS Multi-Branch Merchant Operations Manual",
+  userManualVersion: "v3.2 Official",
+  userManualDescription: "Standard Operating Procedures for branch managers, inventory transfers, stock movements with manager debt tracking, cashier POS, and audit logs.",
+  userManualUpdatedAt: "2026-07-29",
+  userManualUrl: "https://www.w3.org/W3C/DesignIssues/diagrams/overview.pdf"
 };
 
 interface SystemSettingsContextValue {

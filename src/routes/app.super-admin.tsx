@@ -95,7 +95,7 @@ export const INITIAL_LOGS: SystemLog[] = [
   { id: "log-1", timestamp: "2026-05-24T15:20:00Z", user: "Sarah Manager", action: "Authorized stock clearance: 50 units maize", store: "Main Warehouse", status: "success" },
   { id: "log-2", timestamp: "2026-05-24T15:10:00Z", user: "Mike Head", action: "Low stock alert triggered: Paracetamol", store: "Ikeja Branch", status: "warning" },
   { id: "log-3", timestamp: "2026-05-24T14:45:00Z", user: "Emma Manager", action: "Closed POS Register - Daily Cashout: ₦54,200", store: "Lekki Outlet", status: "success" },
-  { id: "log-4", timestamp: "2026-05-24T13:30:00Z", user: "John Admin", action: "Supabase connection delay resolved", store: "Abuja Distribution Hub", status: "info" },
+  { id: "log-4", timestamp: "2026-05-24T13:30:00Z", user: "John Admin", action: "Firestore connection latency optimized", store: "Abuja Distribution Hub", status: "info" },
   { id: "log-5", timestamp: "2026-05-24T12:00:00Z", user: "Dave Requestor", action: "Submitted low-stock requisition: Fertilizers", store: "Main Warehouse", status: "success" },
 ];
 

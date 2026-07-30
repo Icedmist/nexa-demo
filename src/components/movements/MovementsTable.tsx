@@ -164,6 +164,27 @@ export function MovementsTable({ movements, itemNameMap, locationNameMap }: Move
                 <span className="font-medium text-foreground">{viewingMovement.performedBy || "System"}</span>
               </div>
 
+              {/* Financial Payment & Debt Ledger */}
+              {(viewingMovement.totalCostNgn !== undefined || viewingMovement.paymentAmountNgn !== undefined) && (
+                <div className="p-3 rounded-lg bg-muted/60 border border-border space-y-1.5 my-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Financial & Debt Record</p>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Total Goods Cost:</span>
+                    <span className="font-medium">₦{(viewingMovement.totalCostNgn || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Manager Payment Made:</span>
+                    <span className="font-semibold text-emerald-600">₦{(viewingMovement.paymentAmountNgn || 0).toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs pt-1 border-t border-border/50">
+                    <span className="text-muted-foreground font-medium">Remaining Balance / Debt:</span>
+                    <span className={`font-bold font-mono ${(viewingMovement.remainingBalanceNgn || 0) > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600"}`}>
+                      ₦{(viewingMovement.remainingBalanceNgn || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {viewingMovement.reference && (
                 <div className="flex items-center justify-between py-1 border-b border-border/50">
                   <span className="text-muted-foreground flex items-center gap-1.5">
@@ -312,6 +333,7 @@ export function MovementsTable({ movements, itemNameMap, locationNameMap }: Move
                 <TableHead className="w-[90px]">Quantity</TableHead>
                 <TableHead className="w-[80px]">Direction</TableHead>
                 <TableHead>Performed By</TableHead>
+                <TableHead>Payment / Debt</TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead className="w-[130px]">Time</TableHead>
                 <TableHead className="w-[80px] text-right">Actions</TableHead>
@@ -342,6 +364,20 @@ export function MovementsTable({ movements, itemNameMap, locationNameMap }: Move
                         <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${dir === "in" ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-500"}`}>{dir}</span>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{m.performedBy}</TableCell>
+                      <TableCell>
+                        {m.totalCostNgn !== undefined ? (
+                          <div className="text-xs space-y-0.5">
+                            <div className="text-emerald-600 font-medium">Paid: ₦{(m.paymentAmountNgn || 0).toLocaleString()}</div>
+                            {(m.remainingBalanceNgn || 0) > 0 ? (
+                              <div className="text-amber-600 font-bold">Debt: ₦{(m.remainingBalanceNgn || 0).toLocaleString()}</div>
+                            ) : (
+                              <div className="text-muted-foreground text-[11px]">Cleared</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground">{m.reference || "—"}</TableCell>
                       <TableCell>
                         <Tooltip>

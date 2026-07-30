@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { MovementType } from "@/types/inventory";
 import type { Item, Location, StockMovement } from "@/types/inventory";
 import { useCreateMovement } from "@/hooks/useInventoryMutations";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface MovementFormSheetProps {
   open: boolean;
@@ -52,12 +53,15 @@ export function MovementFormSheet({
   locations,
   preSelectedItemId,
 }: MovementFormSheetProps) {
+  const { user, profile } = useAuth();
   const { mutate, isLoading } = useCreateMovement();
 
   const [itemId, setItemId] = useState("");
   const [type, setType] = useState<MovementType>(MovementType.Received);
   const [quantity, setQuantity] = useState("");
   const [direction, setDirection] = useState<"in" | "out">("in");
+  const [unitCost, setUnitCost] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
   const [reference, setReference] = useState("");
   const [fromLocationId, setFromLocationId] = useState("");
   const [toLocationId, setToLocationId] = useState("");
@@ -66,16 +70,30 @@ export function MovementFormSheet({
   // Reset form when opening
   useEffect(() => {
     if (open) {
-      setItemId(preSelectedItemId ?? "");
+      const selectedId = preSelectedItemId ?? "";
+      setItemId(selectedId);
+      const selItem = items.find((i) => i.id === selectedId);
+      setUnitCost(selItem?.costPrice ? String(selItem.costPrice) : "");
       setType(MovementType.Received);
       setQuantity("");
       setDirection("in");
+      setPaymentAmount("");
       setReference("");
       setFromLocationId("");
       setToLocationId("");
       setErrors({});
     }
-  }, [open, preSelectedItemId]);
+  }, [open, preSelectedItemId, items]);
+
+  // When item changes, auto-fill unit cost
+  const handleItemSelect = (val: string) => {
+    const id = val === "__none__" ? "" : val;
+    setItemId(id);
+    const selItem = items.find((i) => i.id === id);
+    if (selItem?.costPrice) {
+      setUnitCost(String(selItem.costPrice));
+    }
+  };
 
   // Auto-set direction when type changes
   useEffect(() => {
@@ -96,7 +114,7 @@ export function MovementFormSheet({
     const selectedItem = items.find((i) => i.id === itemId);
 
     // Shipped: cannot exceed current stock
-    if (!errs.quantity && selectedItem && (type === MovementType.Shipped || (type === MovementType.Transferred))) {
+    if (!errs.quantity && selectedItem && (type === MovementType.Shipped || type === MovementType.Transferred)) {
       if (qty > selectedItem.currentStock) {
         errs.quantity = `Insufficient stock. Current quantity: ${selectedItem.currentStock}`;
       }
@@ -127,6 +145,14 @@ export function MovementFormSheet({
     return Object.keys(errs).length === 0;
   };
 
+  const qtyNum = parseInt(quantity, 10) || 0;
+  const unitCostNum = parseFloat(unitCost) || 0;
+  const totalCostNum = qtyNum * unitCostNum;
+  const paidNum = parseFloat(paymentAmount) || 0;
+  const remainingDebtNum = Math.max(0, totalCostNum - paidNum);
+  const calculatedStatus: "unpaid" | "partial" | "paid" =
+    totalCostNum > 0 && paidNum >= totalCostNum ? "paid" : paidNum > 0 ? "partial" : "unpaid";
+
   const handleSave = () => {
     if (!validate()) return;
 
@@ -143,8 +169,14 @@ export function MovementFormSheet({
       toLocationId: type === MovementType.Transferred ? toLocationId || null : null,
       reference,
       notes: reference,
-      performedBy: "Demo User",
+      performedBy: user?.displayName || profile?.name || "Store Manager",
       createdAt: new Date().toISOString(),
+      unitCostNgn: unitCostNum > 0 ? unitCostNum : undefined,
+      totalCostNgn: totalCostNum > 0 ? totalCostNum : undefined,
+      paymentAmountNgn: paidNum > 0 ? paidNum : undefined,
+      remainingBalanceNgn: totalCostNum > 0 ? remainingDebtNum : undefined,
+      paymentStatus: totalCostNum > 0 ? calculatedStatus : undefined,
+      storeId: profile?.storeId,
     };
 
     mutate(movement, {
@@ -165,10 +197,10 @@ export function MovementFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:max-w-[440px] overflow-y-auto">
+      <SheetContent className="w-[400px] sm:max-w-[460px] overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Log Movement</SheetTitle>
-          <SheetDescription>Record a stock movement for an inventory item.</SheetDescription>
+          <SheetTitle>Log Movement & Payment</SheetTitle>
+          <SheetDescription>Record a stock movement, manager payments, and remaining balance/debt.</SheetDescription>
         </SheetHeader>
 
         <div className="mt-6 space-y-4">
@@ -177,7 +209,7 @@ export function MovementFormSheet({
             <Label className="mb-1.5 block text-sm">Item *</Label>
             <Select
               value={itemId || "__none__"}
-              onValueChange={(v) => setItemId(v === "__none__" ? "" : v)}
+              onValueChange={handleItemSelect}
               disabled={!!preSelectedItemId}
             >
               <SelectTrigger>
@@ -208,19 +240,63 @@ export function MovementFormSheet({
             </Select>
           </div>
 
-          {/* Quantity */}
-          <div>
-            <Label className="mb-1.5 block text-sm">Quantity *</Label>
-            <Input
-              type="number"
-              min={1}
-              step={1}
-              placeholder="Enter quantity"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-            />
-            {errors.quantity && <p className="mt-1 text-xs text-destructive">{errors.quantity}</p>}
+          {/* Quantity & Unit Cost */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="mb-1.5 block text-sm">Quantity *</Label>
+              <Input
+                type="number"
+                min={1}
+                step={1}
+                placeholder="Enter qty"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+              {errors.quantity && <p className="mt-1 text-xs text-destructive">{errors.quantity}</p>}
+            </div>
+
+            <div>
+              <Label className="mb-1.5 block text-sm">Unit Cost (₦)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                placeholder="e.g. 1500"
+                value={unitCost}
+                onChange={(e) => setUnitCost(e.target.value)}
+              />
+            </div>
           </div>
+
+          {/* Financials & Debt Breakdown */}
+          {qtyNum > 0 && unitCostNum > 0 && (
+            <div className="p-3 rounded-lg bg-muted/60 border border-border space-y-2 text-xs">
+              <div className="flex justify-between font-medium">
+                <span className="text-muted-foreground">Total Value of Goods:</span>
+                <span className="font-bold text-foreground">₦{totalCostNum.toLocaleString()}</span>
+              </div>
+
+              <div>
+                <Label className="mb-1 block text-xs font-medium">Payment Made by Manager (₦)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={1}
+                  placeholder="Enter amount paid"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  className="h-8 text-xs bg-background"
+                />
+              </div>
+
+              <div className="flex justify-between items-center pt-1 border-t border-border/60">
+                <span className="text-muted-foreground">Remaining Debt / Balance:</span>
+                <span className={`font-bold font-mono text-sm ${remainingDebtNum > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600"}`}>
+                  ₦{remainingDebtNum.toLocaleString()} {remainingDebtNum > 0 ? "(Pending)" : "(Paid)"}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Direction (only for adjusted) */}
           {isAdjusted && (
@@ -288,7 +364,7 @@ export function MovementFormSheet({
 
           {/* Actions */}
           <div className="flex gap-2 pt-2">
-            <Button onClick={handleSave} disabled={isLoading} className="flex-1">
+            <Button onClick={handleSave} disabled={isLoading} className="flex-1 bg-primary">
               {isLoading ? "Saving…" : "Save Movement"}
             </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

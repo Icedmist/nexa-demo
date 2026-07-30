@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, doc, updateDoc, addDoc } from "firebase/firestore";
 import { toast } from "sonner";
-import { Pill, CheckCircle2, XCircle, Clock, Search, ShieldCheck, PlusCircle } from "lucide-react";
+import { Pill, CheckCircle2, XCircle, Clock, Search, ShieldCheck, PlusCircle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,7 +117,10 @@ export function DrugLibraryAdminPage() {
     return () => unsub();
   }, []);
 
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
   const handleApprove = async (id: string, name: string) => {
+    setActionLoadingId(id);
     try {
       await updateDoc(doc(db, "drugLibrary", id), {
         verificationStatus: "verified",
@@ -127,10 +130,13 @@ export function DrugLibraryAdminPage() {
     } catch (err) {
       console.error("Failed to approve drug:", err);
       toast.error("Failed to approve drug item.");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
   const handleReject = async (id: string, name: string) => {
+    setActionLoadingId(id);
     try {
       await updateDoc(doc(db, "drugLibrary", id), {
         verificationStatus: "rejected",
@@ -140,6 +146,8 @@ export function DrugLibraryAdminPage() {
     } catch (err) {
       console.error("Failed to reject drug:", err);
       toast.error("Failed to reject drug item.");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -326,19 +334,31 @@ export function DrugLibraryAdminPage() {
                       <>
                         <Button
                           size="sm"
+                          disabled={actionLoadingId === item.id}
                           onClick={() => handleApprove(item.id, item.name)}
                           className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1"
                         >
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                          {actionLoadingId === item.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          )}
+                          Approve
                         </Button>
 
                         <Button
                           variant="outline"
                           size="sm"
+                          disabled={actionLoadingId === item.id}
                           onClick={() => handleReject(item.id, item.name)}
                           className="h-8 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-900 font-semibold gap-1"
                         >
-                          <XCircle className="h-3.5 w-3.5" /> Reject
+                          {actionLoadingId === item.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5" />
+                          )}
+                          Reject
                         </Button>
                       </>
                     )}
@@ -347,9 +367,15 @@ export function DrugLibraryAdminPage() {
                       <Button
                         variant="outline"
                         size="sm"
+                        disabled={actionLoadingId === item.id}
                         onClick={() => handleApprove(item.id, item.name)}
                         className="h-8 text-xs font-semibold gap-1"
                       >
+                        {actionLoadingId === item.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        )}
                         Re-Approve
                       </Button>
                     )}

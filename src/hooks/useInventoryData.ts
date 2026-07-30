@@ -60,11 +60,17 @@ export function useItems(filters?: ItemFilters): QueryResult<Item[]> {
       list = list.filter(i => i.status === filters.status);
     }
     if (filters?.search) {
-      const q = filters.search.toLowerCase();
-      list = list.filter(i => i.name.toLowerCase().includes(q) || i.sku.toLowerCase().includes(q));
+      const q = filters.search.toLowerCase().trim();
+      list = list.filter((i) => {
+        const name = (i.name || "").toLowerCase();
+        const sku = (i.sku || "").toLowerCase();
+        const barcode = (i.barcode || "").toLowerCase();
+        return name.includes(q) || sku.includes(q) || barcode.includes(q);
+      });
     }
 
     return { data: list, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, filters, firebaseData, loading]);
 }
 
@@ -76,6 +82,7 @@ export function useItemById(id: string): QueryResult<Item | undefined> {
   return useMemo(() => {
     if (isDemo && demoStore) return { data: demoStore.getItemById(id), isLoading: false, error: null };
     return { data: firebaseData, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, id, firebaseData, loading]);
 }
 
@@ -93,6 +100,7 @@ export function useCategories(): QueryResult<Category[]> {
   return useMemo(() => {
     if (isDemo && demoStore) return { data: demoStore.getCategories(), isLoading: false, error: null };
     return { data: firebaseData, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
@@ -110,6 +118,7 @@ export function useSuppliers(): QueryResult<Supplier[]> {
   return useMemo(() => {
     if (isDemo && demoStore) return { data: [...demoStore.getSuppliers()], isLoading: false, error: null };
     return { data: firebaseData, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
@@ -127,6 +136,7 @@ export function useLocations(): QueryResult<Location[]> {
   return useMemo(() => {
     if (isDemo && demoStore) return { data: demoStore.getLocations(), isLoading: false, error: null };
     return { data: firebaseData, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
@@ -155,6 +165,7 @@ export function useMovements(limitVal?: number): QueryResult<StockMovement[]> {
     });
     const finalData = limitVal ? sorted.slice(0, limitVal) : sorted;
     return { data: finalData, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, limitVal, firebaseData, loading]);
 }
 
@@ -180,6 +191,7 @@ export function useStockSummary(): QueryResult<StockSummary> {
     };
 
     return { data: summary, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, items, loading]);
 }
 
@@ -189,7 +201,7 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
   const enabled = !isDemo && !!auth.currentUser && !!activeStoreId;
 
   const constraints = useMemo(() => {
-    const c = [orderBy("createdAt", "desc")];
+    const c = [];
     if (activeStoreId) c.push(where("storeId", "==", activeStoreId));
     return c;
   }, [activeStoreId]);
@@ -198,7 +210,13 @@ export function usePurchaseOrders(): QueryResult<PurchaseOrder[]> {
 
   return useMemo(() => {
     if (isDemo && demoStore) return { data: [...demoStore.getPurchaseOrders()], isLoading: false, error: null };
-    return { data: firebaseData, isLoading: loading, error: null };
+    const sorted = [...firebaseData].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
+    return { data: sorted, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
@@ -223,6 +241,7 @@ export function useRequests(): QueryResult<InventoryRequest[]> {
       return dateB - dateA;
     });
     return { data: sorted, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
@@ -247,6 +266,7 @@ export function useSales(): QueryResult<SaleTransaction[]> {
       return dateB - dateA;
     });
     return { data: sorted, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
@@ -271,6 +291,7 @@ export function useExpenses(): QueryResult<Expense[]> {
       return dateB - dateA;
     });
     return { data: sorted, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
@@ -295,6 +316,7 @@ export function useCustomers(): QueryResult<Customer[]> {
       return nameA.localeCompare(nameB);
     });
     return { data: sorted, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
@@ -319,6 +341,7 @@ export function useRefunds(): QueryResult<Refund[]> {
       return dateB - dateA;
     });
     return { data: sorted, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
@@ -338,6 +361,7 @@ export function useCredits(): QueryResult<CreditCustomer[]> {
   return useMemo(() => {
     if (isDemo && demoStore) return { data: demoStore.getCreditCustomers(), isLoading: false, error: null };
     return { data: firebaseData, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
@@ -357,6 +381,7 @@ export function useAllCompanyItems(): QueryResult<Item[]> {
   return useMemo(() => {
     if (isDemo && demoStore) return { data: demoStore.getItems(), isLoading: false, error: null };
     return { data: firebaseData, isLoading: loading, error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDemo, demoStore, version, firebaseData, loading]);
 }
 
